@@ -26,9 +26,10 @@ class LearnBoxApp {
         );
         
         this.quizManager = new QuizManager(
-            this.apiService,
-            this.uiManager
-        );
+        this.apiService,
+        this.uiManager,
+        this.authManager  
+    );
         
         this.courseManager = new CourseManager(
             this.apiService,

@@ -98,6 +98,20 @@ export class CourseManager {
                 this.courseProgress = 0;
             }
 
+            // Загружаем модули курса
+            await this.loadCourseModules(courseId);
+
+            this.renderCourseAccessControls();
+
+        } catch (error) {
+            console.error('Failed to open course:', error);
+            this.uiManager.showToast('Ошибка загрузки курса', 'error');
+            this.uiManager.showSection('catalog');
+        }
+    }
+
+    async loadCourseModules(courseId) {
+        try {
             const modulesResult = await this.api.getCourseModules(courseId, this.userId);
             
             if (modulesResult.success && modulesResult.modules.length > 0) {
@@ -118,13 +132,10 @@ export class CourseManager {
                 this.allModules = [];
                 this.renderCourseSidebar(this.currentCourse, []);
             }
-
-            this.renderCourseAccessControls();
-
         } catch (error) {
-            console.error('Failed to open course:', error);
-            this.uiManager.showToast('Ошибка загрузки курса', 'error');
-            this.uiManager.showSection('catalog');
+            console.error('Ошибка загрузки модулей:', error);
+            this.allModules = [];
+            this.renderCourseSidebar(this.currentCourse, []);
         }
     }
 
@@ -225,12 +236,13 @@ export class CourseManager {
     }
 
     async openLesson(lessonId) {
-        if (!this.isUserEnrolled) {
+        if (!this.isUserEnrolled && this.isAuthenticated) {
             this.uiManager.showToast('Запишитесь на курс, чтобы открыть урок', 'warning');
             return;
         }
 
         try {
+            // Обновляем активный урок в UI
             document.querySelectorAll('.lesson-item').forEach(item => {
                 item.classList.remove('active');
             });
@@ -240,23 +252,47 @@ export class CourseManager {
                 lessonElement.classList.add('active');
             }
             
+            // Загружаем урок
             const result = await this.api.getLesson(lessonId, this.userId);
             
             if (result.success) {
                 this.currentLesson = result.lesson;
                 this.renderLessonContent(result.lesson);
                 
+                // Проверяем статус урока
+                await this.checkAndUpdateLessonStatus(lessonId);
+                
+                // Проверяем, есть ли квиз или код-упражнение
+                const hasQuiz = await this.checkIfLessonHasQuiz(lessonId);
                 const hasCodeExercise = await this.checkIfLessonHasCodeExercise(lessonId);
                 
-                if (hasCodeExercise) {
-                    const pythonLanguageId = '11111111-1111-1111-1111-111111111111';
-                    await this.loadCodeTemplate(lessonId, pythonLanguageId);
-                    this.uiManager.showCodeSection();
-                } else {
-                    this.uiManager.hideCodeSection();
-                }
+                console.log(`Урок ${lessonId}: квиз=${hasQuiz}, код=${hasCodeExercise}`);
                 
-                await this.quizManager.loadQuizQuestions(lessonId);
+                // Если нет ни квиза, ни практики - автоматически завершаем
+                if (!hasQuiz && !hasCodeExercise) {
+                    console.log('Урок без заданий - автоматически завершаем...');
+                    await this.completeLessonAutomatically(lessonId);
+                } else {
+                    // Показываем соответствующие секции
+                    if (hasQuiz) {
+                        const quizLoaded = await this.quizManager.loadQuizQuestions(lessonId);
+                        if (quizLoaded) {
+                            this.uiManager.showQuizSection();
+                        } else {
+                            this.uiManager.hideQuizSection();
+                        }
+                    } else {
+                        this.uiManager.hideQuizSection();
+                    }
+                    
+                    if (hasCodeExercise) {
+                        const pythonLanguageId = '11111111-1111-1111-1111-111111111111';
+                        await this.loadCodeTemplate(lessonId, pythonLanguageId);
+                        this.uiManager.showCodeSection();
+                    } else {
+                        this.uiManager.hideCodeSection();
+                    }
+                }
                 
             } else {
                 this.uiManager.showToast('Урок не найден или недоступен', 'error');
@@ -264,6 +300,156 @@ export class CourseManager {
         } catch (error) {
             console.error('Failed to open lesson:', error);
             this.uiManager.showToast('Ошибка загрузки урока', 'error');
+        }
+    }
+
+    async completeLessonAutomatically(lessonId) {
+        try {
+            if (!this.isUserEnrolled) return;
+            
+            console.log('Автоматическое завершение урока:', lessonId);
+            
+            // Сразу обновляем UI
+            this.updateLessonStatusInUI(lessonId, true);
+            this.updateSidebarLessonStatus(lessonId, true);
+            
+            // Отправляем запрос на сервер
+            const result = await this.api.completeLesson(lessonId);
+            
+            if (result.success) {
+                console.log('Урок автоматически завершен:', lessonId);
+                this.uiManager.showToast('Урок пройден!', 'success');
+                
+                // Обновляем прогресс курса
+                if (this.currentCourse) {
+                    await this.updateCourseProgressInUI(this.currentCourse.id);
+                }
+                
+                // ✅ ПРОВЕРЯЕМ И РАЗБЛОКИРУЕМ СЛЕДУЮЩИЙ МОДУЛЬ
+                await this.checkAndUpdateModuleCompletion();
+                
+                // Скрываем секции заданий
+                this.uiManager.hideQuizSection();
+                this.uiManager.hideCodeSection();
+                
+                // Показываем сообщение о завершении
+                this.showLessonCompletionMessage();
+            } else {
+                console.warn('Не удалось автоматически завершить урок:', result.error);
+            }
+        } catch (error) {
+            console.error('Ошибка автоматического завершения урока:', error);
+        }
+    }
+
+    async checkAndUpdateModuleCompletion() {
+        try {
+            if (!this.currentModule || !this.currentCourse || !this.userId) return;
+            
+            console.log('Проверка завершения модуля:', this.currentModule.id);
+            
+            // Проверяем, все ли уроки модуля завершены
+            const moduleLessons = this.currentLessons;
+            const completedLessons = moduleLessons.filter(lesson => lesson.isCompleted);
+            
+            console.log(`Модуль ${this.currentModule.id}: завершено ${completedLessons.length}/${moduleLessons.length} уроков`);
+            
+            // Если все уроки завершены
+            if (completedLessons.length >= moduleLessons.length && moduleLessons.length > 0) {
+                console.log('Все уроки модуля завершены!');
+                
+                // Обновляем статус модуля в UI
+                this.updateModuleStatusInUI(this.currentModule.id, true);
+                
+                // ✅ ПЕРЕЗАГРУЖАЕМ МОДУЛИ КУРСА ДЛЯ РАЗБЛОКИРОВКИ СЛЕДУЮЩЕГО
+                await this.reloadCourseModules();
+                
+                this.uiManager.showToast('Модуль завершен! Следующий модуль разблокирован.', 'success');
+            }
+        } catch (error) {
+            console.error('Ошибка проверки модуля:', error);
+        }
+    }
+
+    async reloadCourseModules() {
+        try {
+            if (!this.currentCourse || !this.userId) return;
+            
+            console.log('Перезагрузка модулей курса:', this.currentCourse.id);
+            
+            const modulesResult = await this.api.getCourseModules(this.currentCourse.id, this.userId);
+            
+            if (modulesResult.success) {
+                this.allModules = modulesResult.modules;
+                this.renderCourseSidebar(this.currentCourse, this.allModules);
+                console.log('Модули перезагружены:', this.allModules.length);
+                
+                // Показываем разблокированные модули
+                this.showUnlockedModules();
+            }
+        } catch (error) {
+            console.error('Ошибка перезагрузки модулей:', error);
+        }
+    }
+
+    showUnlockedModules() {
+        if (!this.allModules || this.allModules.length === 0) return;
+        
+        console.log('Проверка доступности модулей:');
+        
+        this.allModules.forEach((module, index) => {
+            console.log(`Модуль ${index + 1}: ${module.title} - доступен: ${module.isAccessible}, завершен: ${module.isCompleted}`);
+            
+            // Находим первый доступный и незавершенный модуль
+            if (module.isAccessible && !module.isCompleted) {
+                console.log(`✅ Модуль "${module.title}" доступен для изучения!`);
+            }
+        });
+    }
+
+    showLessonCompletionMessage() {
+        const stepContent = document.querySelector('.step-content');
+        if (stepContent && this.currentLesson) {
+            stepContent.innerHTML += `
+                <div class="lesson-completion-message">
+                    <div class="completion-icon">✅</div>
+                    <h3>Урок пройден!</h3>
+                    <p>Вы успешно завершили урок "${this.currentLesson.title}"</p>
+                    <div class="completion-actions">
+                        ${this.currentLessons.length > 1 ? `
+                            <button class="btn-primary" onclick="app.courseManager.goToNextStep()">
+                                Следующий урок →
+                            </button>
+                        ` : ''}
+                        <button class="btn-secondary" onclick="app.courseManager.openModule('${this.currentModule?.id}')">
+                            Вернуться к модулю
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+    }
+
+    async checkIfLessonHasQuiz(lessonId) {
+        try {
+            const result = await this.api.getQuizQuestions(lessonId);
+            return result.success && result.questions && result.questions.length > 0;
+        } catch (error) {
+            console.log('No quiz found for lesson:', lessonId);
+            return false;
+        }
+    }
+
+    async checkIfLessonHasCodeExercise(lessonId) {
+        try {
+            const pythonLanguageId = '11111111-1111-1111-1111-111111111111';
+            const result = await this.api.getCodeTemplate(lessonId, pythonLanguageId, this.userId);
+            
+            return result.success && result.template && 
+                   (result.template.starterCode || result.template.templateCode);
+        } catch (error) {
+            console.log('No code exercise found for lesson:', lessonId);
+            return false;
         }
     }
 
@@ -369,13 +555,56 @@ export class CourseManager {
                         ${!module.isAccessible && !module.isCompleted ? 
                             '<div class="module-hint muted">Завершите предыдущий модуль</div>' : ''}
                         <ul class="lessons-list" id="lessons-${module.id}">
-                            <li>${module.isAccessible ? 'Загрузка уроков...' : 'Модуль заблокирован'}</li>
+                            <li class="loading">Загрузка уроков...</li>
                         </ul>
                     </div>
                 `;
             });
 
             modulesList.innerHTML = modulesHtml;
+            
+            // Загружаем уроки для каждого модуля асинхронно
+            modules.forEach(module => {
+                this.loadModuleLessonsForSidebar(module.id);
+            });
+        }
+    }
+
+    async loadModuleLessonsForSidebar(moduleId) {
+        try {
+            const result = await this.api.getModuleLessons(moduleId, this.userId);
+            
+            if (result.success) {
+                const lessonsList = document.querySelector(`#lessons-${moduleId}`);
+                if (!lessonsList) return;
+                
+                if (result.lessons.length === 0) {
+                    lessonsList.innerHTML = '<li class="muted">Уроки не найдены</li>';
+                    return;
+                }
+                
+                let lessonsHtml = '';
+                result.lessons.forEach(lesson => {
+                    const completedClass = lesson.isCompleted ? 'completed' : '';
+                    const completedIcon = lesson.isCompleted ? '✓ ' : '';
+                    
+                    lessonsHtml += `
+                        <li class="lesson-item ${completedClass}" 
+                            data-lesson-id="${lesson.id}"
+                            onclick="app.courseManager.openLessonFromModule('${lesson.id}')">
+                            <div class="lesson-icon">${lesson.order}</div>
+                            <div class="lesson-info">
+                                <div class="lesson-title">${completedIcon}${lesson.title}</div>
+                                ${lesson.hasQuiz ? '<div class="lesson-quiz-indicator">📝</div>' : ''}
+                            </div>
+                        </li>
+                    `;
+                });
+                
+                lessonsList.innerHTML = lessonsHtml;
+            }
+        } catch (error) {
+            console.error('Error loading module lessons:', error);
         }
     }
 
@@ -468,18 +697,8 @@ export class CourseManager {
                 this.uiManager.showToast('Вы успешно записались на курс!', 'success');
                 
                 this.userId = this.authManager.getCurrentUser()?.id;
-                const modulesResult = await this.api.getCourseModules(this.currentCourse.id, this.userId);
-                
-                if (modulesResult.success) {
-                    this.allModules = modulesResult.modules;
-                    this.renderCourseSidebar(this.currentCourse, this.allModules);
-                    this.renderCourseAccessControls();
-                    
-                    const firstAccessibleModule = this.allModules.find(m => m.isAccessible);
-                    if (firstAccessibleModule) {
-                        await this.openModule(firstAccessibleModule.id);
-                    }
-                }
+                await this.loadCourseModules(this.currentCourse.id);
+                this.renderCourseAccessControls();
             } else {
                 throw new Error(result.error || 'Не удалось записаться на курс');
             }
@@ -488,19 +707,6 @@ export class CourseManager {
             this.uiManager.showToast(error.message, 'error');
         } finally {
             this.uiManager.showButtonLoading('enroll-course-btn', false);
-        }
-    }
-
-    async checkIfLessonHasCodeExercise(lessonId) {
-        try {
-            const pythonLanguageId = '11111111-1111-1111-1111-111111111111';
-            const result = await this.api.getCodeTemplate(lessonId, pythonLanguageId, this.userId);
-            
-            return result.success && result.template && 
-                   (result.template.starterCode || result.template.templateCode);
-        } catch (error) {
-            console.log('No code exercise found for lesson:', lessonId);
-            return false;
         }
     }
 
@@ -565,6 +771,18 @@ export class CourseManager {
                 const result = await this.api.completeLesson(this.currentLesson.id);
                 if (result.success) {
                     this.uiManager.showToast('Решение отправлено! Урок завершен.', 'success');
+                    
+                    // Обновляем статус
+                    this.updateLessonStatusInUI(this.currentLesson.id, true);
+                    this.updateSidebarLessonStatus(this.currentLesson.id, true);
+                    
+                    // Проверяем завершение модуля
+                    await this.checkAndUpdateModuleCompletion();
+                    
+                    // Обновляем прогресс курса
+                    if (this.currentCourse) {
+                        await this.updateCourseProgressInUI(this.currentCourse.id);
+                    }
                 }
             } catch (error) {
                 console.error('Failed to complete lesson:', error);
@@ -572,6 +790,101 @@ export class CourseManager {
             }
         } else {
             this.uiManager.showToast('Решение отправлено на проверку!', 'success');
+        }
+    }
+
+    async checkAndUpdateLessonStatus(lessonId) {
+        try {
+            if (!this.userId) return;
+            
+            const statusResult = await this.api.checkLessonProgress(lessonId);
+            if (statusResult.success && statusResult.completed) {
+                this.updateLessonStatusInUI(lessonId, true);
+                console.log(`Урок ${lessonId} уже завершен`);
+            }
+        } catch (error) {
+            console.error('Error checking lesson status:', error);
+        }
+    }
+
+    async updateCourseProgressInUI(courseId) {
+        try {
+            if (!this.userId) return;
+            
+            const enrollmentResult = await this.api.checkEnrollment(courseId);
+            if (enrollmentResult.success && enrollmentResult.isEnrolled) {
+                this.courseProgress = enrollmentResult.progress || 0;
+                
+                const progressBar = document.querySelector('.progress-bar-large .progress-fill');
+                const progressText = document.querySelector('.course-progress-display h3');
+                
+                if (progressBar) {
+                    progressBar.style.width = `${this.courseProgress}%`;
+                }
+                if (progressText) {
+                    progressText.textContent = `Ваш прогресс: ${this.courseProgress}%`;
+                }
+                
+                console.log(`Прогресс курса обновлен: ${this.courseProgress}%`);
+            }
+        } catch (error) {
+            console.error('Error updating course progress:', error);
+        }
+    }
+
+    handleQuizCompleted(lessonId, isSuccess) {
+        if (isSuccess) {
+            this.updateLessonStatusInUI(lessonId, true);
+            this.updateSidebarLessonStatus(lessonId, true);
+            
+            if (this.currentModule) {
+                this.checkAndUpdateModuleCompletion();
+            }
+            
+            if (this.currentCourse) {
+                this.updateCourseProgressInUI(this.currentCourse.id);
+            }
+            
+            this.uiManager.showToast('Тест пройден! Урок завершен.', 'success');
+        }
+    }
+
+    updateLessonStatusInUI(lessonId, isCompleted) {
+        const lessonElement = document.querySelector(`[data-lesson-id="${lessonId}"]`);
+        if (lessonElement) {
+            if (isCompleted) {
+                lessonElement.classList.add('completed');
+                const titleDiv = lessonElement.querySelector('.lesson-title');
+                if (titleDiv && !titleDiv.textContent.includes('✓')) {
+                    titleDiv.textContent = '✓ ' + titleDiv.textContent.replace('✓ ', '');
+                }
+            }
+        }
+    }
+
+    updateSidebarLessonStatus(lessonId, isCompleted) {
+        const lessonElement = document.querySelector(`[data-lesson-id="${lessonId}"]`);
+        if (lessonElement && isCompleted) {
+            lessonElement.classList.add('completed');
+            const titleDiv = lessonElement.querySelector('.lesson-title');
+            if (titleDiv && !titleDiv.textContent.includes('✓')) {
+                titleDiv.textContent = '✓ ' + titleDiv.textContent.replace('✓ ', '');
+            }
+        }
+    }
+
+    updateModuleStatusInUI(moduleId, isCompleted) {
+        const moduleElement = document.querySelector(`[data-module-id="${moduleId}"]`);
+        if (moduleElement) {
+            if (isCompleted) {
+                moduleElement.classList.remove('accessible');
+                moduleElement.classList.add('completed');
+                
+                const statusElement = moduleElement.querySelector('.module-status');
+                if (statusElement) {
+                    statusElement.textContent = '✓';
+                }
+            }
         }
     }
 

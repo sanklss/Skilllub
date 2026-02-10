@@ -110,26 +110,28 @@
               </div>
 
               <div class="quiz-section hidden" id="quiz-section">
-                  <div class="quiz-header">
-                      <h3>Проверка знаний</h3>
-                      <div class="quiz-progress">
-                          <span id="quiz-progress">Вопрос 1 из 5</span>
-                      </div>
-                  </div>
-                  
-                  <div class="quiz-container">
-                      <div class="quiz-question" id="quiz-question">
-                      </div>
-                      <div class="quiz-options" id="quiz-options">
-                      </div>
-                      
-                      <div class="quiz-actions">
-                          <button class="btn-secondary" id="quiz-prev" disabled>← Назад</button>
-                          <button class="btn-primary" id="quiz-next">Далее →</button>
-                          <button class="btn-secondary" id="quiz-close">Закрыть тест</button>
-                      </div>
-                  </div>
-              </div>
+                <div class="quiz-header">
+                    <h3>Проверка знаний</h3>
+                    <div class="quiz-progress">
+                        <span id="quiz-progress">Вопрос 1 из 5</span>
+                    </div>
+                </div>
+                
+                <div class="quiz-container">
+                    <div class="quiz-question" id="quiz-question">
+                    </div>
+                    <div class="quiz-options" id="quiz-options">
+                    </div>
+                    
+                    <div class="quiz-actions">
+                        <button class="btn-secondary" id="quiz-prev" disabled>← Назад</button>
+                        <button class="btn-primary" id="quiz-next">Далее →</button>
+                        <!-- ДОБАВИТЬ ЭТУ КНОПКУ -->
+                        <button class="btn-success" id="quiz-submit" disabled>Отправить ответы</button>
+                        <button class="btn-secondary" id="quiz-close">Закрыть тест</button>
+                    </div>
+                </div>
+            </div>
 
               <div class="code-section hidden">
                 <div class="editor-header">
@@ -796,19 +798,22 @@
 
 <template id="quiz-container-template">
     <div class="quiz-header">
-      <h3>Проверка знаний</h3>
-      <div class="quiz-progress">
-        <span id="quiz-progress">Вопрос 1 из 5</span>
-      </div>
+        <h3>Проверка знаний</h3>
+        <div class="quiz-progress">
+            <span id="quiz-progress">Вопрос 1 из 5</span>
+        </div>
     </div>
     <div class="quiz-container">
-      <div class="quiz-question" id="quiz-question"></div>
-      <div class="quiz-options" id="quiz-options"></div>
-      <div class="quiz-actions">
-        <button class="btn-secondary" id="quiz-prev" disabled>← Назад</button>
-        <button class="btn-primary" id="quiz-next">Далее →</button>
-        <button class="btn-secondary" id="quiz-close">Закрыть тест</button>
-      </div>
+        <div class="quiz-question" id="quiz-question"></div>
+        
+        <div class="quiz-options" id="quiz-options" role="radiogroup"></div>
+        
+        <div class="quiz-actions">
+            <button class="btn-secondary" id="quiz-prev" disabled>← Назад</button>
+            <button class="btn-primary" id="quiz-next">Далее →</button>
+            <button class="btn-success" id="quiz-submit" disabled>Отправить ответы</button>
+            <button class="btn-secondary" id="quiz-close">Закрыть тест</button>
+        </div>
     </div>
 </template>
 

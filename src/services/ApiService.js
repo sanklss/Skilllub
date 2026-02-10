@@ -175,13 +175,13 @@ export class ApiService {
     }
 
     async getModuleLessons(moduleId, userId = null) {
-        const url = userId 
-            ? `/courses/modules/${moduleId}/lessons?userId=${userId}`
-            : `/courses/modules/${moduleId}/lessons`;
-        
-        const response = await this.request(url);
-        return response.json();
-    }
+    const url = userId 
+        ? `/courses/modules/${moduleId}/lessons?userId=${userId}`
+        : `/courses/modules/${moduleId}/lessons`;
+    
+    const response = await this.request(url);
+    return response.json();
+}
 
     async getLesson(lessonId, userId = null) {
         const url = userId 
@@ -354,4 +354,25 @@ export class ApiService {
         });
         return response.json();
     }
+
+    async checkLessonProgress(lessonId) {
+    try {
+        const response = await this.request(`/progress/lesson/${lessonId}/status`);
+        return response.json();
+    } catch (error) {
+        console.error('Error checking lesson progress:', error);
+        return { success: false, completed: false };
+    }
+}
+
+    async submitQuizAnswers(lessonId, answers) {
+    const response = await this.request(`/quiz/lessons/${lessonId}/submit`, {
+        method: 'POST',
+        body: JSON.stringify({
+            lessonId: lessonId,
+            answers: answers
+        })
+    });
+    return response.json();
+}
 }
