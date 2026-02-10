@@ -6,6 +6,8 @@ import { CourseManager } from './components/CourseManager.js';
 import { QuizManager } from './components/QuizManager.js';
 import { UIManager } from './components/UIManager.js';
 import { AdminManager } from './components/AdminManager.js';
+import { TeacherManager } from './components/TeacherManager.js';
+import { MyCoursesManager } from './components/MyCoursesManager.js';
 import { SessionManager } from './services/SessionManager.js';
 
 class LearnBoxApp {
@@ -31,12 +33,24 @@ class LearnBoxApp {
         this.courseManager = new CourseManager(
             this.apiService,
             this.uiManager,
-            this.quizManager  
+            this.quizManager,
+            this.authManager
         );
 
         this.adminManager = new AdminManager(
             this.apiService,
             this.uiManager
+        );
+
+        this.teacherManager = new TeacherManager(
+            this.apiService,
+            this.uiManager
+        );
+
+        this.myCoursesManager = new MyCoursesManager(
+            this.apiService,
+            this.uiManager,
+            this.courseManager
         );
         
         window.app = this;
@@ -58,6 +72,7 @@ class LearnBoxApp {
             await this.courseManager.initialize();
             this.quizManager.initialize();
             this.adminManager.initialize();
+            this.teacherManager.initialize();
             this.setupGlobalNavigation();
             
             console.log('LearnBox App Ready');
@@ -120,17 +135,16 @@ class LearnBoxApp {
         
         if (user.role === 'admin') {
             document.body.classList.add('admin-mode');
-            this.showSection('admin-panel');
+            this.uiManager.showSection('admin-panel');
         } else if (user.role === 'teacher') {
             document.body.classList.add('teacher-mode');
-            this.showSection('teacher-panel');
+            this.uiManager.showSection('teacher-panel');
         } else {
-            this.showSection('catalog');
+            this.uiManager.showSection('catalog');
         }
         
         this.forceHideNavigation();
     }
- 
 
     initializeValidation() {
         const formIds = [
@@ -152,7 +166,11 @@ class LearnBoxApp {
                 e.preventDefault();
                 const sectionName = navItem.getAttribute('data-section');
                 if (sectionName) {
-                    this.showSection(sectionName);
+                    this.uiManager.showSection(sectionName);
+                    
+                    if (sectionName === 'my-courses' && this.authManager.isAuthenticated()) {
+                        this.myCoursesManager.loadMyCourses();
+                    }
                 }
             }
         });
@@ -177,6 +195,12 @@ class LearnBoxApp {
 
     openLesson(lessonId) {
         this.courseManager.openLesson(lessonId);
+    }
+
+    loadMyCourses() {
+        if (this.authManager.isAuthenticated()) {
+            this.myCoursesManager.loadMyCourses();
+        }
     }
 }
 

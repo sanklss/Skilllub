@@ -60,7 +60,7 @@
         </div>
         <div class="my-courses-container" id="my-courses-container">
           <div class="empty-state">
-            <div class="empty-icon"></div>
+            <div class="empty-icon">📚</div>
             <h3>У вас пока нет активных курсов</h3>
             <p>Начните обучение, выбрав курс из каталога</p>
             <button class="btn-primary" onclick="showSection('catalog')">Перейти в каталог</button>
@@ -72,7 +72,7 @@
         <div class="course-layout">
           <aside class="course-sidebar">
             <div class="sidebar-header">
-              <h3 id="sidebar-course-title">Программирование на Python</h3>
+              <h3 id="sidebar-course-title">Загрузка курса...</h3>
               <div class="course-progress">
                 <div class="progress-bar">
                   <div class="progress-fill" style="width: 0%"></div>
@@ -81,6 +81,7 @@
               </div>
             </div>
             <div class="modules-list" id="modules-list">
+              <p class="muted">Загрузка модулей...</p>
             </div>
           </aside>
 
@@ -89,13 +90,18 @@
               <nav class="breadcrumb">
                 <a href="#catalog" onclick="showSection('catalog')">Каталог курсов</a> 
                 <span class="breadcrumb-separator">/</span>
-                <span id="breadcrumb-course">Программирование на Python</span>
+                <span id="breadcrumb-course">Загрузка...</span>
               </nav>
               <h1 id="step-title">Выберите урок</h1>
               <div class="step-meta">
                 <span id="step-number">Шаг 0 из 0</span>
                 <span class="step-duration"></span>
               </div>
+            </div>
+            
+            <!-- БЛОК УПРАВЛЕНИЯ ДОСТУПОМ К КУРСУ -->
+            <div id="course-access-controls" class="course-access-controls">
+              <!-- Здесь будет отображаться информация о доступе -->
             </div>
             
             <div class="step-container">
@@ -132,11 +138,11 @@
                     <option value="python">Python</option>
                   </select>
                 </div>
-                <textarea class="code-editor" id="code-editor" placeholder="Напишите ваш код здесь..."></textarea>
+                <textarea class="code-editor" id="code-editor" placeholder="Напишите ваш код здесь..." disabled></textarea>
                 <div class="editor-actions">
-                  <button class="btn-primary" id="run-code">Запустить код</button>
-                  <button class="btn-secondary" id="reset-code">Сбросить</button>
-                  <button class="btn-success" id="submit-code">Отправить решение</button>
+                  <button class="btn-primary" id="run-code" disabled>Запустить код</button>
+                  <button class="btn-secondary" id="reset-code" disabled>Сбросить</button>
+                  <button class="btn-success" id="submit-code" disabled>Отправить решение</button>
                 </div>
               </div>
 
@@ -145,8 +151,8 @@
               </div>
 
               <div class="step-actions">
-                <button class="btn-secondary" id="prev-step">← Предыдущий урок</button>
-                <button class="btn-primary" id="next-step">Следующий урок →</button>
+                <button class="btn-secondary" id="prev-step" disabled>← Предыдущий урок</button>
+                <button class="btn-primary" id="next-step" disabled>Следующий урок →</button>
               </div>
             </div>
           </main>
@@ -804,6 +810,101 @@
         <button class="btn-secondary" id="quiz-close">Закрыть тест</button>
       </div>
     </div>
+</template>
+
+<template id="my-courses-grid-template">
+  <div class="my-courses-header">
+    <h2>Мои курсы (<span id="my-courses-count">0</span>)</h2>
+    <p class="subtitle">Продолжайте обучение с того места, где остановились</p>
+  </div>
+  <div class="my-courses-grid" id="my-courses-list">
+  </div>
+</template>
+
+<template id="my-course-card-template">
+  <div class="my-course-card {{statusClass}}">
+    <div class="course-card-header">
+      <h3 class="course-title">{{title}}</h3>
+      <span class="progress-badge">{{progress}}%</span>
+    </div>
+    
+    <div class="course-description">
+      {{description}}
+    </div>
+    
+    <div class="progress-container">
+      <div class="progress-bar">
+        <div class="progress-fill" style="width: {{progress}}%"></div>
+      </div>
+      <div class="progress-text">{{progress}}% завершено</div>
+    </div>
+    
+    <div class="course-meta">
+      <div class="meta-item">
+        <span class="meta-label">Записан:</span>
+        <span class="meta-value">{{enrolledAt}}</span>
+      </div>
+      {{#if lastAccessed}}
+      <div class="meta-item">
+        <span class="meta-label">Последний доступ:</span>
+        <span class="meta-value">{{lastAccessed}}</span>
+      </div>
+      {{/if}}
+    </div>
+    
+    <div class="course-actions">
+      <button class="btn-primary" onclick="app.myCoursesManager.openCourse('{{courseId}}')">
+        {{#if completed}}Повторить курс{{else}}Продолжить обучение{{/if}}
+      </button>
+      {{#if completed}}
+        <span class="completion-badge">✓ Завершен</span>
+      {{else}}
+        <span class="in-progress-badge">В процессе</span>
+      {{/if}}
+    </div>
+  </div>
+</template>
+
+<template id="course-access-notice-guest">
+  <div class="course-access-notice">
+    <div class="lock-icon-large">🔒</div>
+    <h3>Войдите, чтобы начать обучение</h3>
+    <p>Для прохождения курса необходимо войти в систему</p>
+    <div class="access-actions">
+      <button class="btn-primary" onclick="app.uiManager.showModal('modal-login')">
+        Войти
+      </button>
+      <button class="btn-secondary" onclick="app.uiManager.showModal('modal-signup')">
+        Зарегистрироваться
+      </button>
+    </div>
+  </div>
+</template>
+
+<template id="course-access-notice-not-enrolled">
+  <div class="course-access-notice">
+    <div class="lock-icon-large">🔓</div>
+    <h3>Готовы начать обучение?</h3>
+    <p>Запишитесь на курс, чтобы получить доступ ко всем урокам и заданиям</p>
+    <div class="access-actions">
+      <button class="btn-primary" id="enroll-course-btn">
+        Приступить к обучению
+      </button>
+      <button class="btn-secondary" onclick="app.uiManager.showSection('catalog')">
+        Вернуться к каталогу
+      </button>
+    </div>
+  </div>
+</template>
+
+<template id="course-progress-display">
+  <div class="course-progress-display">
+    <h3>Ваш прогресс: {{progress}}%</h3>
+    <div class="progress-bar-large">
+      <div class="progress-fill" style="width: {{progress}}%"></div>
+    </div>
+    <p class="muted">Продолжайте обучение! Открывайте уроки из списка слева.</p>
+  </div>
 </template>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>

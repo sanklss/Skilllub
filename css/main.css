@@ -79,3 +79,315 @@
     margin-bottom: 1rem;
     opacity: 0.5;
 }
+
+/* Стили для системы блокировки курсов */
+.course-access-controls {
+    margin: 2rem 0;
+    padding: 2rem;
+    background-color: var(--bg-secondary);
+    border-radius: var(--border-radius-lg);
+    border: 1px solid var(--border-color);
+    text-align: center;
+}
+
+.course-access-notice {
+    max-width: 500px;
+    margin: 0 auto;
+}
+
+.lock-icon-large {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    opacity: 0.7;
+}
+
+.lock-icon-medium {
+    font-size: 2rem;
+    margin-bottom: 1rem;
+    opacity: 0.7;
+}
+
+.lock-icon-small {
+    font-size: 0.8rem;
+    margin-left: 0.5rem;
+    opacity: 0.7;
+}
+
+.course-access-notice h3 {
+    margin-bottom: 0.5rem;
+    color: var(--text-primary);
+}
+
+.course-access-notice p {
+    color: var(--text-secondary);
+    margin-bottom: 1.5rem;
+}
+
+.access-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.course-progress-display {
+    max-width: 500px;
+    margin: 0 auto;
+}
+
+.progress-bar-large {
+    height: 10px;
+    background-color: var(--border-color);
+    border-radius: 5px;
+    overflow: hidden;
+    margin: 1rem 0;
+}
+
+.progress-bar-large .progress-fill {
+    height: 100%;
+    background-color: var(--primary-color);
+    transition: width 0.3s ease;
+}
+
+/* Заблокированные элементы */
+.module-lock {
+    margin-left: 0.5rem;
+    opacity: 0.7;
+}
+
+.lesson-item.locked {
+    opacity: 0.6;
+    cursor: not-allowed;
+    background-color: var(--bg-secondary);
+}
+
+.lesson-item.locked:hover {
+    background-color: var(--bg-secondary);
+    transform: none;
+}
+
+.lesson-item.locked .lesson-icon {
+    background-color: #e5e7eb;
+    color: var(--text-muted);
+}
+
+.lesson-status {
+    font-size: 0.75rem;
+    margin-top: 0.25rem;
+}
+
+.lesson-status.muted {
+    color: var(--text-muted);
+}
+
+.lesson-status.success {
+    color: var(--success-color);
+}
+
+/* Блокировка контента */
+.lesson-preview {
+    position: relative;
+}
+
+.lesson-preview-content {
+    max-height: 300px;
+    overflow: hidden;
+    position: relative;
+}
+
+.lesson-preview-content::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 100px;
+    background: linear-gradient(transparent, var(--bg-card));
+}
+
+.preview-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.9);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+}
+
+.overlay-content {
+    text-align: center;
+    padding: 2rem;
+    max-width: 400px;
+}
+
+.overlay-content h4 {
+    margin: 1rem 0 0.5rem;
+    color: var(--text-primary);
+}
+
+.overlay-content p {
+    color: var(--text-secondary);
+    margin-bottom: 1.5rem;
+}
+
+/* Стили для "Моих курсов" */
+.my-courses-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+    gap: 1.5rem;
+    margin-top: 2rem;
+}
+
+.my-course-card {
+    background-color: var(--bg-card);
+    border-radius: var(--border-radius-lg);
+    border: 1px solid var(--border-color);
+    padding: 1.5rem;
+    transition: all 0.2s ease;
+}
+
+.my-course-card:hover {
+    border-color: var(--primary-color);
+    box-shadow: var(--shadow-md);
+    transform: translateY(-2px);
+}
+
+.my-course-card.completed {
+    border-left: 4px solid var(--success-color);
+}
+
+.my-course-card.in-progress {
+    border-left: 4px solid var(--primary-color);
+}
+
+.my-course-card.started {
+    border-left: 4px solid var(--warning-color);
+}
+
+.course-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 1rem;
+}
+
+.course-title {
+    font-size: 1.125rem;
+    font-weight: 600;
+    margin: 0;
+    flex: 1;
+}
+
+.progress-badge {
+    padding: 0.25rem 0.75rem;
+    background-color: var(--primary-color);
+    color: white;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.progress-container {
+    margin: 1rem 0;
+}
+
+.progress-bar {
+    height: 6px;
+    background-color: var(--border-color);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-bottom: 0.5rem;
+}
+
+.progress-fill {
+    height: 100%;
+    background-color: var(--primary-color);
+    transition: width 0.3s ease;
+}
+
+.progress-text {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+}
+
+.course-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin: 1rem 0;
+}
+
+.meta-item {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.875rem;
+}
+
+.meta-label {
+    color: var(--text-muted);
+}
+
+.meta-value {
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.course-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 1rem;
+}
+
+.completion-badge {
+    padding: 0.25rem 0.75rem;
+    background-color: var(--success-color);
+    color: white;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.in-progress-badge {
+    padding: 0.25rem 0.75rem;
+    background-color: var(--warning-color);
+    color: white;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.empty-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    margin-top: 1.5rem;
+}
+
+/* Адаптивность */
+@media (max-width: 768px) {
+    .my-courses-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .access-actions {
+        flex-direction: column;
+    }
+    
+    .access-actions button {
+        width: 100%;
+    }
+    
+    .course-card-header {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    
+    .progress-badge {
+        align-self: flex-start;
+    }
+}

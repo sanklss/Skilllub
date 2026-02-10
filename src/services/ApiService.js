@@ -6,7 +6,31 @@ export class ApiService {
         this.storage = new StorageService();
         this.baseURL = API_URL;
     }
+    async checkEnrollment(courseId) {
+        const response = await this.request(`/progress/check-enrollment/${courseId}`);
+        return response.json();
+    }
 
+    async enrollInCourse(courseId) {
+        const response = await this.request('/progress/enroll', {
+            method: 'POST',
+            body: JSON.stringify({ courseId })
+        });
+        return response.json();
+    }
+
+    async getMyCourses() {
+        const response = await this.request('/progress/my-courses');
+        return response.json();
+    }
+
+    async completeLesson(lessonId) {
+        const response = await this.request(`/progress/lesson/${lessonId}/complete`, {
+            method: 'POST'
+        });
+        return response.json();
+    }
+    
     async request(endpoint, options = {}) {
         const url = `${this.baseURL}${endpoint}`;
         const config = {
