@@ -6,4 +6,6 @@ public class ModuleDto
     public string Title { get; set; } = "";
     public string Description { get; set; } = "";
     public int Order { get; set; }
+    public bool IsAccessible { get; set; } = true;
+    public bool IsCompleted { get; set; } = false;
 }

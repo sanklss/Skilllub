@@ -1,12 +1,12 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using SkilllubLearnbox.DTOs;
 using SkilllubLearnbox.Services;
-using SkilllubLearnbox.Utilities;
-
 
 namespace SkilllubLearnbox.Controllers;
 
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/courses")]
 public class CoursesController : ControllerBase
 {
     private readonly ILogger<CoursesController> _logger;
@@ -23,19 +23,13 @@ public class CoursesController : ControllerBase
     {
         try
         {
-            _logger.LogInformation("Получение списка курсов");
             var courses = await _courseService.GetAllCoursesAsync();
-
-            return Ok(new
-            {
-                success = true,
-                courses = courses
-            });
+            return Ok(new { success = true, courses });
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Ошибка при получении курсов");
-            return StatusCode(500, new { success = false, error = "Ошибка сервера" });
+            return Problem("Ошибка сервера");
         }
     }
 
@@ -44,7 +38,6 @@ public class CoursesController : ControllerBase
     {
         try
         {
-            _logger.LogInformation("Получение курса: {CourseId}", courseId);
             var course = await _courseService.GetCourseByIdAsync(courseId);
 
             if (course == null)
@@ -52,110 +45,104 @@ public class CoursesController : ControllerBase
                 return NotFound(new { success = false, error = "Курс не найден" });
             }
 
-            return Ok(new
-            {
-                success = true,
-                course = course
-            });
+            return Ok(new { success = true, course });
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Ошибка при получении курса {CourseId}", courseId);
-            return StatusCode(500, new { success = false, error = "Ошибка сервера" });
+            return Problem("Ошибка сервера");
         }
     }
 
     [HttpGet("{courseId}/modules")]
-    public async Task<IActionResult> GetCourseModules(string courseId)
+    public async Task<IActionResult> GetCourseModules(string courseId, [FromQuery] string userId = null)
     {
         try
         {
-            _logger.LogInformation("Получение модулей курса: {CourseId}", courseId);
-            var modules = await _courseService.GetCourseModulesAsync(courseId);
-
-            return Ok(new
-            {
-                success = true,
-                modules = modules
-            });
+            var modules = await _courseService.GetCourseModulesAsync(courseId, userId);
+            return Ok(new { success = true, modules });
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Ошибка при получении модулей курса {CourseId}", courseId);
-            return StatusCode(500, new { success = false, error = "Ошибка сервера" });
+            return Problem("Ошибка сервера");
         }
     }
 
     [HttpGet("modules/{moduleId}/lessons")]
-    public async Task<IActionResult> GetModuleLessons(string moduleId)
+    public async Task<IActionResult> GetModuleLessons(string moduleId, [FromQuery] string userId = null)
     {
         try
         {
-            _logger.LogInformation("Получение уроков модуля: {ModuleId}", moduleId);
-            var lessons = await _courseService.GetModuleLessonsAsync(moduleId);
-
-            return Ok(new
-            {
-                success = true,
-                lessons = lessons
-            });
+            var lessons = await _courseService.GetModuleLessonsAsync(moduleId, userId);
+            return Ok(new { success = true, lessons });
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Ошибка при получении уроков модуля {ModuleId}", moduleId);
-            return StatusCode(500, new { success = false, error = "Ошибка сервера" });
+            return Problem("Ошибка сервера");
         }
     }
 
     [HttpGet("lessons/{lessonId}")]
-    public async Task<IActionResult> GetLesson(string lessonId)
+    public async Task<IActionResult> GetLesson(string lessonId, [FromQuery] string userId = null)
     {
         try
         {
-            _logger.LogInformation("Получение урока: {LessonId}", lessonId);
-            var lesson = await _courseService.GetLessonByIdAsync(lessonId);
+            var lesson = await _courseService.GetLessonByIdAsync(lessonId, userId);
 
             if (lesson == null)
             {
-                return NotFound(new { success = false, error = "Урок не найден" });
+                return NotFound(new { success = false, error = "Урок не найден или недоступен" });
             }
 
-            return Ok(new
-            {
-                success = true,
-                lesson = lesson
-            });
+            return Ok(new { success = true, lesson });
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Ошибка при получении урока {LessonId}", lessonId);
-            return StatusCode(500, new { success = false, error = "Ошибка сервера" });
+            return Problem("Ошибка сервера");
+        }
+    }
+
+    [HttpGet("{courseId}/preload")]
+    public async Task<IActionResult> PreloadCourseData(string courseId, [FromQuery] string userId = null)
+    {
+        try
+        {
+            await _courseService.PreloadCourseDataAsync(courseId, userId);
+
+            return Ok(new
+            {
+                success = true,
+                message = "Данные курса предзагружены в кэш"
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Ошибка при предзагрузке данных курса");
+            return Problem("Ошибка сервера");
         }
     }
 
     [HttpGet("lessons/{lessonId}/code-template/{languageId}")]
-    public async Task<IActionResult> GetLessonCodeTemplate(string lessonId, string languageId)
+    public async Task<IActionResult> GetLessonCodeTemplate(string lessonId, string languageId, [FromQuery] string userId = null)
     {
         try
         {
-            _logger.LogInformation("Получение шаблона кода для урока: {LessonId}, язык: {LanguageId}", lessonId, languageId);
-            var template = await _courseService.GetLessonCodeTemplateAsync(lessonId, languageId);
+            var template = await _courseService.GetLessonCodeTemplateAsync(lessonId, languageId, userId);
 
             if (template == null)
             {
                 return NotFound(new { success = false, error = "Шаблон кода не найден" });
             }
 
-            return Ok(new
-            {
-                success = true,
-                template = template
-            });
+            return Ok(new { success = true, template });
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Ошибка при получении шаблона кода для урока {LessonId}", lessonId);
-            return StatusCode(500, new { success = false, error = "Ошибка сервера" });
+            return Problem("Ошибка сервера");
         }
     }
 }

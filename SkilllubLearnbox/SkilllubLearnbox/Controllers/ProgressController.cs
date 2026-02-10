@@ -1,6 +1,5 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using SkilllubLearnbox.Attributes;
 using SkilllubLearnbox.DTOs;
 using SkilllubLearnbox.Services;
 
@@ -40,6 +39,9 @@ public class ProgressController : ControllerBase
 
             if (result)
             {
+                // Инициализируем прогресс модулей для пользователя
+                await _progressService.InitializeModuleProgress(userId, dto.CourseId);
+
                 return Ok(new
                 {
                     success = true,
@@ -59,29 +61,30 @@ public class ProgressController : ControllerBase
     }
 
     [HttpGet("check-enrollment/{courseId}")]
+    [Authorize]
     public async Task<IActionResult> CheckEnrollment(string courseId)
     {
         try
         {
             var userId = User.FindFirst("userId")?.Value;
-            var isEnrolled = false;
+            if (string.IsNullOrEmpty(userId))
+            {
+                return Unauthorized(new { success = false, error = "Пользователь не авторизован" });
+            }
+
+            var isEnrolled = await _progressService.IsUserEnrolledInCourseAsync(userId, courseId);
             var progress = 0;
 
-            if (!string.IsNullOrEmpty(userId))
+            if (isEnrolled)
             {
-                isEnrolled = await _progressService.IsUserEnrolledInCourseAsync(userId, courseId);
-                if (isEnrolled)
-                {
-                    progress = await _progressService.GetUserCourseProgressAsync(userId, courseId);
-                }
+                progress = await _progressService.GetUserCourseProgressAsync(userId, courseId);
             }
 
             return Ok(new
             {
                 success = true,
                 isEnrolled,
-                progress,
-                isAuthenticated = !string.IsNullOrEmpty(userId)
+                progress
             });
         }
         catch (Exception ex)
@@ -148,6 +151,9 @@ public class ProgressController : ControllerBase
 
             await _progressService.UpdateUserProgressAsync(userId, lessonId);
 
+            // Проверяем и завершаем модуль, если все уроки пройдены
+            await _progressService.CompleteModuleIfAllLessonsDoneAsync(userId, lessonId);
+
             return Ok(new
             {
                 success = true,
@@ -157,6 +163,35 @@ public class ProgressController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "Ошибка при обновлении прогресса урока");
+            return Problem("Ошибка сервера");
+        }
+    }
+
+    [HttpGet("module/{moduleId}/status")]
+    [Authorize]
+    public async Task<IActionResult> GetModuleStatus(string moduleId)
+    {
+        try
+        {
+            var userId = User.FindFirst("userId")?.Value;
+            if (string.IsNullOrEmpty(userId))
+            {
+                return Unauthorized(new { success = false, error = "Пользователь не авторизован" });
+            }
+
+            var isAccessible = await _progressService.IsModuleAccessibleAsync(userId, moduleId);
+            var isCompleted = await _progressService.IsModuleCompletedAsync(userId, moduleId);
+
+            return Ok(new
+            {
+                success = true,
+                isAccessible,
+                isCompleted
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Ошибка при получении статуса модуля");
             return Problem("Ошибка сервера");
         }
     }
