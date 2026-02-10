@@ -12,6 +12,7 @@ export class CourseManager {
         this.isUserEnrolled = false;
         this.courseProgress = 0;
         this.isAuthenticated = false;
+        this.userId = null;
     }
 
     async initialize() {
@@ -84,6 +85,7 @@ export class CourseManager {
 
             this.currentCourse = courseResult.course;
             this.isAuthenticated = this.authManager.isAuthenticated();
+            this.userId = this.isAuthenticated ? this.authManager.getCurrentUser()?.id : null;
             
             if (this.isAuthenticated) {
                 const enrollmentResult = await this.api.checkEnrollment(courseId);
@@ -96,12 +98,21 @@ export class CourseManager {
                 this.courseProgress = 0;
             }
 
-            const modulesResult = await this.api.getCourseModules(courseId);
+            const modulesResult = await this.api.getCourseModules(courseId, this.userId);
             
             if (modulesResult.success && modulesResult.modules.length > 0) {
                 this.allModules = modulesResult.modules;
-                const firstModule = modulesResult.modules[0];
-                await this.loadModuleLessons(firstModule.id);
+                
+                let firstAccessibleModule = modulesResult.modules.find(m => m.isAccessible);
+                
+                if (this.isUserEnrolled && !firstAccessibleModule) {
+                    firstAccessibleModule = modulesResult.modules[0];
+                }
+                
+                if (firstAccessibleModule) {
+                    await this.openModule(firstAccessibleModule.id);
+                }
+                
                 this.renderCourseSidebar(this.currentCourse, modulesResult.modules);
             } else {
                 this.allModules = [];
@@ -117,30 +128,208 @@ export class CourseManager {
         }
     }
 
-    async loadModuleLessons(moduleId) {
-        try {
-            const result = await this.api.getModuleLessons(moduleId);
-            
-            if (result.success) {
-                this.currentLessons = result.lessons;
-                await this.loadCurrentModule(moduleId);
-                this.renderLessonsSidebar(result.lessons);
-                
-                if (result.lessons.length > 0 && this.isUserEnrolled) {
-                    await this.openLesson(result.lessons[0].id);
-                }
+    async openModule(moduleId) {
+        if (!this.isUserEnrolled && this.isAuthenticated) {
+            this.uiManager.showToast('Запишитесь на курс, чтобы открыть модуль', 'warning');
+            return;
+        }
+        
+        const module = this.allModules.find(m => m.id === moduleId);
+        if (!module) {
+            this.uiManager.showToast('Модуль не найден', 'error');
+            return;
+        }
+        
+        if (!module.isAccessible) {
+            if (module.isCompleted) {
+                this.uiManager.showToast('Этот модуль уже завершен', 'info');
+            } else {
+                this.uiManager.showToast('Этот модуль пока недоступен. Завершите предыдущий модуль.', 'warning');
             }
+            return;
+        }
+        
+        try {
+            await this.loadModuleLessons(moduleId);
+            
+            if (this.currentLessons.length > 0) {
+                await this.openLesson(this.currentLessons[0].id);
+            }
+            
+            this.updateActiveModule(moduleId);
+            
         } catch (error) {
-            console.error('Failed to load module lessons:', error);
+            console.error('Failed to open module:', error);
+            this.uiManager.showToast('Ошибка загрузки модуля', 'error');
         }
     }
 
-    async loadCurrentModule(moduleId) {
+    async loadModuleLessons(moduleId) {
         try {
-            this.currentModule = this.allModules.find(module => module.id === moduleId) || null;
+            const result = await this.api.getModuleLessons(moduleId, this.userId);
+            
+            if (result.success) {
+                this.currentLessons = result.lessons;
+                this.currentModule = this.allModules.find(m => m.id === moduleId) || null;
+                this.renderLessonsSidebar(result.lessons);
+            } else {
+                this.currentLessons = [];
+                this.currentModule = null;
+                this.uiManager.showToast('Уроки не найдены или модуль недоступен', 'warning');
+            }
         } catch (error) {
-            console.error('Failed to load current module:', error);
+            console.error('Failed to load module lessons:', error);
+            this.uiManager.showToast('Ошибка загрузки уроков', 'error');
+            this.currentLessons = [];
             this.currentModule = null;
+        }
+    }
+
+    renderLessonsSidebar(lessons) {
+        const moduleElement = document.querySelector(`[data-module-id="${this.currentModule?.id}"]`);
+        if (!moduleElement) return;
+        
+        const lessonsList = moduleElement.querySelector('.lessons-list');
+        if (!lessonsList) return;
+        
+        if (lessons.length === 0) {
+            lessonsList.innerHTML = '<li class="muted">Уроки не найдены</li>';
+            return;
+        }
+        
+        let lessonsHtml = '';
+        lessons.forEach(lesson => {
+            lessonsHtml += `
+                <li class="lesson-item" 
+                    data-lesson-id="${lesson.id}"
+                    onclick="app.courseManager.openLessonFromModule('${lesson.id}')">
+                    <div class="lesson-icon">${lesson.order}</div>
+                    <div class="lesson-info">
+                        <div class="lesson-title">${lesson.title}</div>
+                        <div class="lesson-status accessible">Доступен</div>
+                    </div>
+                </li>
+            `;
+        });
+        
+        lessonsList.innerHTML = lessonsHtml;
+    }
+
+    async openLessonFromModule(lessonId) {
+        if (!this.isUserEnrolled) {
+            this.uiManager.showToast('Запишитесь на курс, чтобы открыть урок', 'warning');
+            return;
+        }
+        
+        await this.openLesson(lessonId);
+    }
+
+    async openLesson(lessonId) {
+        if (!this.isUserEnrolled) {
+            this.uiManager.showToast('Запишитесь на курс, чтобы открыть урок', 'warning');
+            return;
+        }
+
+        try {
+            document.querySelectorAll('.lesson-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            
+            const lessonElement = document.querySelector(`[data-lesson-id="${lessonId}"]`);
+            if (lessonElement) {
+                lessonElement.classList.add('active');
+            }
+            
+            const result = await this.api.getLesson(lessonId, this.userId);
+            
+            if (result.success) {
+                this.currentLesson = result.lesson;
+                this.renderLessonContent(result.lesson);
+                
+                const hasCodeExercise = await this.checkIfLessonHasCodeExercise(lessonId);
+                
+                if (hasCodeExercise) {
+                    const pythonLanguageId = '11111111-1111-1111-1111-111111111111';
+                    await this.loadCodeTemplate(lessonId, pythonLanguageId);
+                    this.uiManager.showCodeSection();
+                } else {
+                    this.uiManager.hideCodeSection();
+                }
+                
+                await this.quizManager.loadQuizQuestions(lessonId);
+                
+            } else {
+                this.uiManager.showToast('Урок не найден или недоступен', 'error');
+            }
+        } catch (error) {
+            console.error('Failed to open lesson:', error);
+            this.uiManager.showToast('Ошибка загрузки урока', 'error');
+        }
+    }
+
+    renderLessonContent(lesson) {
+        const stepTitle = document.getElementById('step-title');
+        if (stepTitle) {
+            stepTitle.textContent = lesson.title;
+        }
+
+        const stepNumber = document.getElementById('step-number');
+        if (stepNumber) {
+            stepNumber.textContent = `Урок ${lesson.order} из ${this.currentLessons.length}`;
+        }
+
+        const stepContent = document.querySelector('.step-content');
+        if (stepContent) {
+            stepContent.innerHTML = `
+                <h2>${lesson.title}</h2>
+                <p class="lesson-description">${lesson.description || ''}</p>
+                <div class="lesson-content">
+                    ${lesson.content ? lesson.content.replace(/\n/g, '<br>') : 'Контент урока пока не добавлен.'}
+                </div>
+            `;
+        }
+        
+        this.updateNavigationButtons();
+    }
+
+    updateNavigationButtons() {
+        const prevButton = document.getElementById('prev-step');
+        const nextButton = document.getElementById('next-step');
+        
+        if (!this.currentLesson || this.currentLessons.length === 0) {
+            if (prevButton) prevButton.disabled = true;
+            if (nextButton) nextButton.disabled = true;
+            return;
+        }
+        
+        const currentIndex = this.currentLessons.findIndex(lesson => lesson.id === this.currentLesson.id);
+        
+        if (prevButton) {
+            prevButton.disabled = currentIndex <= 0;
+        }
+        
+        if (nextButton) {
+            nextButton.disabled = currentIndex >= this.currentLessons.length - 1;
+        }
+    }
+
+    goToPreviousStep() {
+        if (!this.currentLesson || this.currentLessons.length === 0) return;
+        
+        const currentIndex = this.currentLessons.findIndex(lesson => lesson.id === this.currentLesson.id);
+        if (currentIndex > 0) {
+            const prevLesson = this.currentLessons[currentIndex - 1];
+            this.openLesson(prevLesson.id);
+        }
+    }
+
+    goToNextStep() {
+        if (!this.currentLesson || this.currentLessons.length === 0) return;
+        
+        const currentIndex = this.currentLessons.findIndex(lesson => lesson.id === this.currentLesson.id);
+        if (currentIndex < this.currentLessons.length - 1) {
+            const nextLesson = this.currentLessons[currentIndex + 1];
+            this.openLesson(nextLesson.id);
         }
     }
 
@@ -150,13 +339,9 @@ export class CourseManager {
             sidebarTitle.textContent = course.title;
         }
 
-        const breadcrumb = document.querySelector('.breadcrumb');
-        if (breadcrumb) {
-            breadcrumb.innerHTML = `
-                <a href="#catalog" onclick="app.uiManager.showSection('catalog')">Каталог курсов</a> 
-                <span class="breadcrumb-separator">/</span>
-                <span>${course.title}</span>
-            `;
+        const breadcrumbCourse = document.getElementById('breadcrumb-course');
+        if (breadcrumbCourse) {
+            breadcrumbCourse.textContent = course.title;
         }
 
         const modulesList = document.querySelector('.modules-list');
@@ -168,129 +353,46 @@ export class CourseManager {
 
             let modulesHtml = '';
             modules.forEach(module => {
+                const statusIcon = module.isCompleted ? '✓' : 
+                                 module.isAccessible ? '▶' : '🔒';
+                const statusClass = module.isCompleted ? 'completed' : 
+                                  module.isAccessible ? 'accessible' : 'locked';
+                
                 modulesHtml += `
-                    <div class="module-item">
-                        <div class="module-header">
-                            <span>${module.title}</span>
-                            ${!this.isUserEnrolled ? '<span class="module-lock">🔒</span>' : ''}
+                    <div class="module-item ${statusClass}" 
+                         data-module-id="${module.id}">
+                        <div class="module-header" onclick="app.courseManager.openModule('${module.id}')">
+                            <span class="module-order">${module.order}.</span>
+                            <span class="module-title">${module.title}</span>
+                            <span class="module-status">${statusIcon}</span>
                         </div>
+                        ${!module.isAccessible && !module.isCompleted ? 
+                            '<div class="module-hint muted">Завершите предыдущий модуль</div>' : ''}
                         <ul class="lessons-list" id="lessons-${module.id}">
-                            <li>Загрузка уроков...</li>
+                            <li>${module.isAccessible ? 'Загрузка уроков...' : 'Модуль заблокирован'}</li>
                         </ul>
                     </div>
                 `;
             });
 
             modulesList.innerHTML = modulesHtml;
-
-            modules.forEach(module => {
-                this.loadModuleLessonsForSidebar(module.id);
-            });
         }
     }
 
-    async loadModuleLessonsForSidebar(moduleId) {
-        try {
-            const result = await this.api.getModuleLessons(moduleId);
-            const lessonsList = document.getElementById(`lessons-${moduleId}`);
-            
-            if (lessonsList && result.success) {
-                let lessonsHtml = '';
-                result.lessons.forEach(lesson => {
-                    const isLocked = !this.isUserEnrolled;
-                    const lockIcon = isLocked ? '<span class="lock-icon-small">🔒</span>' : '';
-                    
-                    if (isLocked) {
-                        lessonsHtml += `
-                            <li class="lesson-item locked" data-lesson-id="${lesson.id}">
-                                <div class="lesson-icon">🔒</div>
-                                <div class="lesson-info">
-                                    <div class="lesson-title">${lesson.title} ${lockIcon}</div>
-                                    <div class="lesson-status muted">Запишитесь на курс</div>
-                                </div>
-                            </li>
-                        `;
-                    } else {
-                        lessonsHtml += `
-                            <li class="lesson-item" data-lesson-id="${lesson.id}" 
-                                onclick="app.courseManager.openLessonFromModule('${lesson.id}', '${moduleId}')">
-                                <div class="lesson-icon">${lesson.order}</div>
-                                <div class="lesson-info">
-                                    <div class="lesson-title">${lesson.title}</div>
-                                    <div class="lesson-status success">Доступен</div>
-                                </div>
-                            </li>
-                        `;
-                    }
-                });
-                
-                lessonsList.innerHTML = lessonsHtml;
-            }
-        } catch (error) {
-            console.error('Failed to load lessons for sidebar:', error);
-        }
-    }
-
-    renderLessonsSidebar(lessons) {
-        // Заглушка, если нужно
-    }
-
-    async openLesson(lessonId) {
-        if (!this.isUserEnrolled && this.isAuthenticated) {
-            this.uiManager.showToast('Запишитесь на курс, чтобы открыть урок', 'warning');
-            return;
-        }
+    updateActiveModule(moduleId) {
+        document.querySelectorAll('.module-item').forEach(item => {
+            item.classList.remove('active');
+        });
         
-        if (!this.isUserEnrolled) {
-            this.uiManager.showToast('Запишитесь на курс, чтобы открыть урок', 'warning');
-            return;
+        const activeModule = document.querySelector(`[data-module-id="${moduleId}"]`);
+        if (activeModule) {
+            activeModule.classList.add('active');
         }
-
-        try {
-            document.querySelectorAll('.lesson-item').forEach(item => {
-                item.classList.remove('active');
-            });
-            const lessonElement = document.querySelector(`[data-lesson-id="${lessonId}"]`);
-            if (lessonElement) {
-                lessonElement.classList.add('active');
-            }
-            
-            const result = await this.api.getLesson(lessonId);
-            
-            if (result.success) {
-                this.currentLesson = result.lesson;
-                this.renderLessonContent(result.lesson);
-                
-                const hasCodeExercise = await this.checkIfLessonHasCodeExercise(lessonId);
-                
-                if (hasCodeExercise && this.isUserEnrolled) {
-                    const pythonLanguageId = '11111111-1111-1111-1111-111111111111';
-                    await this.loadCodeTemplate(lessonId, pythonLanguageId);
-                    this.uiManager.showCodeSection();
-                } else {
-                    this.uiManager.hideCodeSection();
-                }
-                
-                if (this.isUserEnrolled) {
-                    await this.quizManager.loadQuizQuestions(lessonId);
-                } else {
-                    this.uiManager.hideQuizSection();
-                }
-            }
-        } catch (error) {
-            console.error('Failed to open lesson:', error);
-        }
-    }
-
-    async openLessonFromModule(lessonId, moduleId) {
-        await this.loadCurrentModule(moduleId);
-        await this.openLesson(lessonId);
     }
 
     renderCourseAccessControls() {
         const accessControls = document.getElementById('course-access-controls');
         if (!accessControls) {
-            // Создаем контейнер если его нет
             const stepContainer = document.querySelector('.step-container');
             if (stepContainer) {
                 const controlsDiv = document.createElement('div');
@@ -323,7 +425,7 @@ export class CourseManager {
                 <div class="course-access-notice">
                     <div class="lock-icon-large">🔓</div>
                     <h3>Готовы начать обучение?</h3>
-                    <p>Запишитесь на курс, чтобы получить доступ ко всем урокам и заданиям</p>
+                    <p>Запишитесь на курс, чтобы получить доступ ко всем модулям и урокам</p>
                     <div class="access-actions">
                         <button class="btn-primary" id="enroll-course-btn">
                             Приступить к обучению
@@ -345,7 +447,7 @@ export class CourseManager {
                     <div class="progress-bar-large">
                         <div class="progress-fill" style="width: ${this.courseProgress}%"></div>
                     </div>
-                    <p class="muted">Продолжайте обучение! Открывайте уроки из списка слева.</p>
+                    <p class="muted">Модули открываются последовательно. Завершайте текущий модуль, чтобы открыть следующий.</p>
                 </div>
             `;
         }
@@ -364,12 +466,19 @@ export class CourseManager {
                 this.courseProgress = 0;
                 
                 this.uiManager.showToast('Вы успешно записались на курс!', 'success');
-                this.renderCourseAccessControls();
                 
-                await this.loadModuleLessonsForAllModules();
+                this.userId = this.authManager.getCurrentUser()?.id;
+                const modulesResult = await this.api.getCourseModules(this.currentCourse.id, this.userId);
                 
-                if (this.allModules.length > 0 && this.allModules[0]) {
-                    await this.loadModuleLessons(this.allModules[0].id);
+                if (modulesResult.success) {
+                    this.allModules = modulesResult.modules;
+                    this.renderCourseSidebar(this.currentCourse, this.allModules);
+                    this.renderCourseAccessControls();
+                    
+                    const firstAccessibleModule = this.allModules.find(m => m.isAccessible);
+                    if (firstAccessibleModule) {
+                        await this.openModule(firstAccessibleModule.id);
+                    }
                 }
             } else {
                 throw new Error(result.error || 'Не удалось записаться на курс');
@@ -382,102 +491,10 @@ export class CourseManager {
         }
     }
 
-    async loadModuleLessonsForAllModules() {
-        for (const module of this.allModules) {
-            await this.loadModuleLessonsForSidebar(module.id);
-        }
-    }
-
-    renderLessonContent(lesson) {
-        const stepTitle = document.getElementById('step-title');
-        if (stepTitle) {
-            stepTitle.textContent = this.currentModule?.title || this.currentCourse?.title || 'Курс';
-        }
-
-        const stepNumber = document.getElementById('step-number');
-        if (stepNumber) {
-            stepNumber.textContent = `Шаг ${lesson.order} из ${this.currentLessons.length}`;
-        }
-
-        const stepContent = document.querySelector('.step-content');
-        if (stepContent) {
-            if (!this.isUserEnrolled) {
-                stepContent.innerHTML = `
-                    <div class="lesson-preview">
-                        <h2>${lesson.title}</h2>
-                        <p class="lesson-description">${lesson.description || ''}</p>
-                        <div class="lesson-preview-content">
-                            ${lesson.content ? lesson.content.substring(0, 500) + '...' : 'Просмотр контента доступен после записи на курс.'}
-                        </div>
-                        <div class="preview-overlay">
-                            <div class="overlay-content">
-                                <div class="lock-icon-medium">🔒</div>
-                                <h4>Запишитесь на курс для полного доступа</h4>
-                                <p>Чтобы просмотреть полное содержание урока и выполнить задания, запишитесь на курс.</p>
-                            </div>
-                        </div>
-                    </div>
-                `;
-            } else {
-                stepContent.innerHTML = `
-                    <h2>${lesson.title}</h2>
-                    <p class="lesson-description">${lesson.description || ''}</p>
-                    <div class="lesson-content">
-                        ${lesson.content ? lesson.content.replace(/\n/g, '<br>') : 'Контент урока пока не добавлен.'}
-                    </div>
-                `;
-            }
-        }
-    }
-
-    goToPreviousStep() {
-        if (!this.currentLesson || this.currentLessons.length === 0) return;
-        
-        const currentIndex = this.currentLessons.findIndex(lesson => lesson.id === this.currentLesson.id);
-        if (currentIndex > 0) {
-            const prevLesson = this.currentLessons[currentIndex - 1];
-            
-            const prevLessonModuleId = this.findModuleIdByLessonId(prevLesson.id);
-            if (prevLessonModuleId) {
-                this.openLessonFromModule(prevLesson.id, prevLessonModuleId);
-            } else {
-                this.openLesson(prevLesson.id);
-            }
-        }
-    }
-
-    goToNextStep() {
-        if (!this.currentLesson || this.currentLessons.length === 0) return;
-        
-        const currentIndex = this.currentLessons.findIndex(lesson => lesson.id === this.currentLesson.id);
-        if (currentIndex < this.currentLessons.length - 1) {
-            const nextLesson = this.currentLessons[currentIndex + 1];
-            
-            const nextLessonModuleId = this.findModuleIdByLessonId(nextLesson.id);
-            if (nextLessonModuleId) {
-                this.openLessonFromModule(nextLesson.id, nextLessonModuleId);
-            } else {
-                this.openLesson(nextLesson.id);
-            }
-        }
-    }
-
-    findModuleIdByLessonId(lessonId) {
-        for (const module of this.allModules) {
-            const moduleLessons = document.querySelectorAll(`#lessons-${module.id} .lesson-item`);
-            for (const lessonElement of moduleLessons) {
-                if (lessonElement.getAttribute('data-lesson-id') === lessonId) {
-                    return module.id;
-                }
-            }
-        }
-        return null;
-    }
-
     async checkIfLessonHasCodeExercise(lessonId) {
         try {
             const pythonLanguageId = '11111111-1111-1111-1111-111111111111';
-            const result = await this.api.getCodeTemplate(lessonId, pythonLanguageId);
+            const result = await this.api.getCodeTemplate(lessonId, pythonLanguageId, this.userId);
             
             return result.success && result.template && 
                    (result.template.starterCode || result.template.templateCode);
@@ -489,14 +506,22 @@ export class CourseManager {
 
     async loadCodeTemplate(lessonId, languageId) {
         try {
-            const result = await this.api.getCodeTemplate(lessonId, languageId);
+            const result = await this.api.getCodeTemplate(lessonId, languageId, this.userId);
             
             if (result.success && result.template) {
                 const codeEditor = document.getElementById('code-editor');
                 if (codeEditor) {
                     codeEditor.value = result.template.starterCode || result.template.templateCode || '';
-                    codeEditor.disabled = !this.isUserEnrolled;
+                    codeEditor.disabled = false;
                 }
+                
+                const runBtn = document.getElementById('run-code');
+                const resetBtn = document.getElementById('reset-code');
+                const submitBtn = document.getElementById('submit-code');
+                
+                if (runBtn) runBtn.disabled = false;
+                if (resetBtn) resetBtn.disabled = false;
+                if (submitBtn) submitBtn.disabled = false;
             }
         } catch (error) {
             console.error('Failed to load code template:', error);
@@ -529,11 +554,25 @@ export class CourseManager {
             this.uiManager.showToast('Запишитесь на курс, чтобы выполнять задания', 'warning');
             return;
         }
+        
         const code = document.getElementById('code-editor').value;
         const language = document.getElementById('language-select').value;
         
         console.log('Submitting code:', { code, language });
-        this.uiManager.showToast('Решение отправлено на проверку!', 'success');
+        
+        if (this.currentLesson) {
+            try {
+                const result = await this.api.completeLesson(this.currentLesson.id);
+                if (result.success) {
+                    this.uiManager.showToast('Решение отправлено! Урок завершен.', 'success');
+                }
+            } catch (error) {
+                console.error('Failed to complete lesson:', error);
+                this.uiManager.showToast('Ошибка при завершении урока', 'error');
+            }
+        } else {
+            this.uiManager.showToast('Решение отправлено на проверку!', 'success');
+        }
     }
 
     searchCourses(event) {
@@ -555,7 +594,6 @@ export class CourseManager {
     resetFilters() {
         document.getElementById('category-filter').value = '';
         document.getElementById('difficulty-filter').value = '';
-        document.getElementById('language-filter').value = '';
         
         document.querySelectorAll('.course-card').forEach(card => {
             card.style.display = 'block';

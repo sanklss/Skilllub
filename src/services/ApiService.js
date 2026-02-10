@@ -6,6 +6,7 @@ export class ApiService {
         this.storage = new StorageService();
         this.baseURL = API_URL;
     }
+
     async checkEnrollment(courseId) {
         const response = await this.request(`/progress/check-enrollment/${courseId}`);
         return response.json();
@@ -30,7 +31,12 @@ export class ApiService {
         });
         return response.json();
     }
-    
+
+    async getModuleStatus(moduleId) {
+        const response = await this.request(`/progress/module/${moduleId}/status`);
+        return response.json();
+    }
+
     async request(endpoint, options = {}) {
         const url = `${this.baseURL}${endpoint}`;
         const config = {
@@ -159,23 +165,39 @@ export class ApiService {
         return response.json();
     }
 
-    async getCourseModules(courseId) {
-        const response = await this.request(`/courses/${courseId}/modules`);
+    async getCourseModules(courseId, userId = null) {
+        const url = userId 
+            ? `/courses/${courseId}/modules?userId=${userId}`
+            : `/courses/${courseId}/modules`;
+        
+        const response = await this.request(url);
         return response.json();
     }
 
-    async getModuleLessons(moduleId) {
-        const response = await this.request(`/courses/modules/${moduleId}/lessons`);
+    async getModuleLessons(moduleId, userId = null) {
+        const url = userId 
+            ? `/courses/modules/${moduleId}/lessons?userId=${userId}`
+            : `/courses/modules/${moduleId}/lessons`;
+        
+        const response = await this.request(url);
         return response.json();
     }
 
-    async getLesson(lessonId) {
-        const response = await this.request(`/courses/lessons/${lessonId}`);
+    async getLesson(lessonId, userId = null) {
+        const url = userId 
+            ? `/courses/lessons/${lessonId}?userId=${userId}`
+            : `/courses/lessons/${lessonId}`;
+        
+        const response = await this.request(url);
         return response.json();
     }
 
-    async getCodeTemplate(lessonId, languageId) {
-        const response = await this.request(`/courses/lessons/${lessonId}/code-template/${languageId}`);
+    async getCodeTemplate(lessonId, languageId, userId = null) {
+        const url = userId 
+            ? `/courses/lessons/${lessonId}/code-template/${languageId}?userId=${userId}`
+            : `/courses/lessons/${lessonId}/code-template/${languageId}`;
+        
+        const response = await this.request(url);
         return response.json();
     }
 
@@ -226,63 +248,63 @@ export class ApiService {
         return response.json();
     }
 
-async deleteUser(userId) {
-    try {
+    async deleteUser(userId) {
+        try {
+            const response = await this.request(`/admin/users/${userId}`, {
+                method: 'DELETE'
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            return await response.json();
+        } catch (error) {
+            console.error('Delete user error:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    async updateUser(userId, userData) {
         const response = await this.request(`/admin/users/${userId}`, {
-            method: 'DELETE'
+            method: 'PUT',
+            body: JSON.stringify(userData)
         });
-        
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
-        return await response.json();
-    } catch (error) {
-        console.error('Delete user error:', error);
-        return { success: false, error: error.message };
+        return response.json();
     }
-}
 
-async updateUser(userId, userData) {
-    const response = await this.request(`/admin/users/${userId}`, {
-        method: 'PUT',
-        body: JSON.stringify(userData)
-    });
-    return response.json();
-}
-
-async changePassword(passwordData) {
-    const response = await this.request('/auth/change-password', {
-        method: 'POST',
-        body: JSON.stringify(passwordData)
-    });
-    return response.json();
-}
-
-async updateUserPassword(userId, passwordData) {
-    const response = await this.request(`/admin/users/${userId}/password`, {
-        method: 'PUT',
-        body: JSON.stringify(passwordData)
-    });
-    return response.json();
-}
-
-async revokeUserSessions(userId) {
-    try {
-        const response = await this.request(`/admin/users/${userId}/revoke-sessions`, {
-            method: 'POST'
+    async changePassword(passwordData) {
+        const response = await this.request('/auth/change-password', {
+            method: 'POST',
+            body: JSON.stringify(passwordData)
         });
-        
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
-        return await response.json();
-    } catch (error) {
-        console.error('Revoke sessions error:', error);
-        return { success: false, error: error.message };
+        return response.json();
     }
-}
+
+    async updateUserPassword(userId, passwordData) {
+        const response = await this.request(`/admin/users/${userId}/password`, {
+            method: 'PUT',
+            body: JSON.stringify(passwordData)
+        });
+        return response.json();
+    }
+
+    async revokeUserSessions(userId) {
+        try {
+            const response = await this.request(`/admin/users/${userId}/revoke-sessions`, {
+                method: 'POST'
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            return await response.json();
+        } catch (error) {
+            console.error('Revoke sessions error:', error);
+            return { success: false, error: error.message };
+        }
+    }
 
     async createUser(userData) {
         try {

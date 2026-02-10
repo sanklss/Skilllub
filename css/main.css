@@ -80,7 +80,6 @@
     opacity: 0.5;
 }
 
-/* Стили для системы блокировки курсов */
 .course-access-controls {
     margin: 2rem 0;
     padding: 2rem;
@@ -149,7 +148,6 @@
     transition: width 0.3s ease;
 }
 
-/* Заблокированные элементы */
 .module-lock {
     margin-left: 0.5rem;
     opacity: 0.7;
@@ -184,7 +182,6 @@
     color: var(--success-color);
 }
 
-/* Блокировка контента */
 .lesson-preview {
     position: relative;
 }
@@ -234,7 +231,6 @@
     margin-bottom: 1.5rem;
 }
 
-/* Стили для "Моих курсов" */
 .my-courses-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
@@ -368,7 +364,6 @@
     margin-top: 1.5rem;
 }
 
-/* Адаптивность */
 @media (max-width: 768px) {
     .my-courses-grid {
         grid-template-columns: 1fr;
@@ -390,4 +385,186 @@
     .progress-badge {
         align-self: flex-start;
     }
+}
+/* Стили для модулей */
+.module-item {
+    margin-bottom: 12px;
+    border-radius: 8px;
+    padding: 16px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    transition: all 0.2s ease;
+}
+
+.module-item:hover {
+    border-color: var(--primary);
+    transform: translateY(-2px);
+}
+
+.module-item.active {
+    border-color: var(--primary);
+    background: var(--primary-light);
+}
+
+.module-item.locked {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.module-item.completed {
+    border-color: var(--success);
+    background: var(--success-light);
+}
+
+.module-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    padding: 8px 0;
+}
+
+.module-header:hover {
+    color: var(--primary);
+}
+
+.module-order {
+    font-weight: 600;
+    margin-right: 8px;
+    color: var(--text-secondary);
+}
+
+.module-title {
+    flex: 1;
+    font-weight: 500;
+}
+
+.module-status {
+    font-size: 16px;
+    margin-left: 8px;
+}
+
+.module-item.completed .module-status {
+    color: var(--success);
+}
+
+.module-item.accessible .module-status {
+    color: var(--primary);
+}
+
+.module-item.locked .module-status {
+    color: var(--danger);
+}
+
+.module-hint {
+    font-size: 12px;
+    margin-top: 4px;
+    padding-left: 24px;
+}
+
+.lessons-list {
+    margin-top: 12px;
+    padding-left: 24px;
+    border-left: 2px solid var(--border-color);
+}
+
+.lesson-item {
+    display: flex;
+    align-items: center;
+    padding: 8px 12px;
+    margin: 4px 0;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.lesson-item:hover {
+    background: var(--bg-hover);
+}
+
+.lesson-item.active {
+    background: var(--primary);
+    color: white;
+}
+
+.lesson-item.active .lesson-icon,
+.lesson-item.active .lesson-status {
+    color: white;
+}
+
+.lesson-icon {
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-tertiary);
+    border-radius: 50%;
+    margin-right: 12px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+.lesson-info {
+    flex: 1;
+}
+
+.lesson-title {
+    font-weight: 500;
+    margin-bottom: 2px;
+}
+
+.lesson-status {
+    font-size: 11px;
+    color: var(--text-tertiary);
+}
+
+.lesson-status.accessible {
+    color: var(--success);
+}
+
+.course-access-controls {
+    margin: 20px 0;
+    padding: 24px;
+    background: var(--bg-secondary);
+    border-radius: 12px;
+    border: 1px solid var(--border-color);
+}
+
+.course-access-notice {
+    text-align: center;
+    padding: 32px 24px;
+}
+
+.lock-icon-large {
+    font-size: 48px;
+    margin-bottom: 16px;
+    opacity: 0.7;
+}
+
+.access-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    margin-top: 24px;
+}
+
+.course-progress-display {
+    padding: 16px;
+}
+
+.progress-bar-large {
+    height: 12px;
+    background: var(--bg-tertiary);
+    border-radius: 6px;
+    margin: 16px 0;
+    overflow: hidden;
+}
+
+.progress-bar-large .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--primary), var(--primary-dark));
+    border-radius: 6px;
+    transition: width 0.3s ease;
 }
