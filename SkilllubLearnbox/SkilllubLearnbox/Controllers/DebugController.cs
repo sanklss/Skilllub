@@ -1,6 +1,8 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using SkilllubLearnbox.Services;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using SkilllubLearnbox.DTOs;
+using SkilllubLearnbox.Models;
+using SkilllubLearnbox.Services;
 
 namespace SkilllubLearnbox.Controllers;
 
@@ -10,11 +12,13 @@ public class DebugController : ControllerBase
 {
     private readonly ILogger<DebugController> _logger;
     private readonly UserService _userService;
+    private readonly ProgressService _progressService;
 
-    public DebugController(ILogger<DebugController> logger, UserService userService)
+    public DebugController(ILogger<DebugController> logger, UserService userService, ProgressService progressService)
     {
         _logger = logger;
         _userService = userService;
+        _progressService = progressService;
     }
 
     [HttpPost("check-user")]
@@ -76,4 +80,6 @@ public class DebugController : ControllerBase
             return Problem("Ошибка сервера");
         }
     }
+
+    
 }

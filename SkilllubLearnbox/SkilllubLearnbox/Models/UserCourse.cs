@@ -8,7 +8,7 @@ public class UserCourse : BaseModel
 {
     [PrimaryKey("id")]
     [Column("id")]
-    public new string Id { get; set; } = "";
+    public string Id { get; set; } = "";
 
     [Column("user_id")]
     public string UserId { get; set; } = "";
@@ -17,13 +17,13 @@ public class UserCourse : BaseModel
     public string CourseId { get; set; } = "";
 
     [Column("enrolled_at")]
-    public DateTime EnrolledAt { get; set; } = DateTime.UtcNow;
+    public DateTime EnrolledAt { get; set; }
 
     [Column("progress")]
-    public int Progress { get; set; }
+    public int Progress { get; set; } = 0;
 
     [Column("completed")]
-    public bool Completed { get; set; }
+    public bool Completed { get; set; } = false;
 
     [Column("last_accessed")]
     public DateTime? LastAccessed { get; set; }

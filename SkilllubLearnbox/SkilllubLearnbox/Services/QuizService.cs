@@ -68,4 +68,111 @@ public class QuizService
             return new List<QuizQuestionDto>();
         }
     }
+
+    public async Task<QuizResultDto> SubmitQuizAnswersAsync(string userId, string lessonId, List<QuizAnswerDto> answers)
+    {
+        try
+        {
+            await _client.InitializeAsync();
+
+            var questionsResponse = await _client.From<QuizQuestion>()
+                .Filter("lesson_id", Supabase.Postgrest.Constants.Operator.Equals, lessonId)
+                .Get();
+
+            var questions = questionsResponse.Models?.ToList() ?? new List<QuizQuestion>();
+
+            if (!questions.Any())
+            {
+                throw new Exception("Вопросы не найдены");
+            }
+
+            var questionResults = new List<QuestionResultDto>();
+            int correctAnswers = 0;
+
+            foreach (var question in questions)
+            {
+                var userAnswer = answers.FirstOrDefault(a => a.QuestionId == question.Id);
+
+                var isCorrect = userAnswer != null && userAnswer.UserAnswer == question.CorrectOption;
+
+                if (isCorrect) correctAnswers++;
+
+                questionResults.Add(new QuestionResultDto
+                {
+                    QuestionId = question.Id,
+                    IsCorrect = isCorrect,
+                    UserAnswer = userAnswer?.UserAnswer ?? 0,
+                    CorrectAnswer = question.CorrectOption,
+                    Explanation = question.Explanation
+                });
+            }
+
+            var score = (int)Math.Round((double)correctAnswers / questions.Count * 100);
+            var isPassed = score >= 70;
+
+            await UpdateUserQuizProgressAsync(userId, lessonId, score, correctAnswers, questions.Count);
+
+            return new QuizResultDto
+            {
+                Score = score,
+                TotalQuestions = questions.Count,
+                CorrectAnswers = correctAnswers,
+                QuestionResults = questionResults,
+                IsPassed = isPassed,
+                Message = isPassed
+                    ? "Поздравляем! Вы успешно прошли тест."
+                    : "К сожалению, вы не прошли тест. Попробуйте еще раз."
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Ошибка при проверке ответов на вопросы урока {LessonId}", lessonId);
+            throw;
+        }
+    }
+
+    private async Task UpdateUserQuizProgressAsync(string userId, string lessonId, int score, int correctAnswers, int totalQuestions)
+    {
+        try
+        {
+            await _client.InitializeAsync();
+
+            var progressResponse = await _client.From<UserProgress>()
+                .Filter("user_id", Supabase.Postgrest.Constants.Operator.Equals, userId)
+                .Filter("lesson_id", Supabase.Postgrest.Constants.Operator.Equals, lessonId)
+                .Get();
+
+            var userProgress = progressResponse.Models?.FirstOrDefault();
+
+            if (userProgress == null)
+            {
+                userProgress = new UserProgress
+                {
+                    Id = Guid.NewGuid().ToString(),
+                    UserId = userId,
+                    LessonId = lessonId,
+                    Completed = true,
+                    BestScore = score,
+                    AttemptsCount = 1,
+                    LastAttempt = DateTime.UtcNow
+                };
+                await _client.From<UserProgress>().Insert(userProgress);
+            }
+            else
+            {
+                userProgress.Completed = true;
+                userProgress.BestScore = Math.Max(userProgress.BestScore, score);
+                userProgress.AttemptsCount++;
+                userProgress.LastAttempt = DateTime.UtcNow;
+                await _client.From<UserProgress>().Update(userProgress);
+            }
+
+            _logger.LogInformation("Прогресс квиза обновлен для пользователя {UserId}, урок {LessonId}, результат: {Score}%",
+                userId, lessonId, score);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Ошибка при обновлении прогресса квиза");
+        }
+    }
 }

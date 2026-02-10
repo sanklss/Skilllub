@@ -2,12 +2,13 @@
 using Supabase.Postgrest.Models;
 
 namespace SkilllubLearnbox.Models;
+
 [Table("lessons")]
 public class Lesson : BaseModel
 {
     [PrimaryKey("id")]
     [Column("id")]
-    public new string Id { get; set; } = "";
+    public string Id { get; set; } = "";
 
     [Column("module_id")]
     public string ModuleId { get; set; } = "";
@@ -16,14 +17,18 @@ public class Lesson : BaseModel
     public string Title { get; set; } = "";
 
     [Column("description")]
-    public string Description { get; set; } = "";
+    public string? Description { get; set; }
 
     [Column("content")]
-    public string Content { get; set; } = "";
+    public string? Content { get; set; }
 
     [Column("lesson_order")]
     public int LessonOrder { get; set; }
 
     [Column("difficulty")]
     public string Difficulty { get; set; } = "easy";
+
+    [Column("created_at")]
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
 }

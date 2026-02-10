@@ -11,10 +11,10 @@ public class UserProgress : BaseModel
     public new string Id { get; set; } = "";
 
     [Column("user_id")]
-    public string UserId { get; set; } = "";
+    public string? UserId { get; set; }
 
     [Column("lesson_id")]
-    public string LessonId { get; set; } = "";
+    public string? LessonId { get; set; }
 
     [Column("completed")]
     public bool Completed { get; set; } = false;

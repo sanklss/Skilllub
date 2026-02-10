@@ -6,7 +6,7 @@ using SkilllubLearnbox.Services;
 namespace SkilllubLearnbox.Controllers;
 
 [ApiController]
-[Route("api/progress")]
+[Route("api/[controller]")]
 public class ProgressController : ControllerBase
 {
     private readonly ILogger<ProgressController> _logger;
@@ -39,7 +39,6 @@ public class ProgressController : ControllerBase
 
             if (result)
             {
-                // Инициализируем прогресс модулей для пользователя
                 await _progressService.InitializeModuleProgress(userId, dto.CourseId);
 
                 return Ok(new
@@ -150,8 +149,6 @@ public class ProgressController : ControllerBase
             }
 
             await _progressService.UpdateUserProgressAsync(userId, lessonId);
-
-            // Проверяем и завершаем модуль, если все уроки пройдены
             await _progressService.CompleteModuleIfAllLessonsDoneAsync(userId, lessonId);
 
             return Ok(new
@@ -163,6 +160,33 @@ public class ProgressController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "Ошибка при обновлении прогресса урока");
+            return Problem("Ошибка сервера");
+        }
+    }
+
+    [HttpGet("lesson/{lessonId}/status")]
+    [Authorize]
+    public async Task<IActionResult> GetLessonStatus(string lessonId)
+    {
+        try
+        {
+            var userId = User.FindFirst("userId")?.Value;
+            if (string.IsNullOrEmpty(userId))
+                return Unauthorized(new { success = false, error = "Пользователь не авторизован" });
+
+            await _progressService.CheckAndUpdateUserProgress(userId, lessonId);
+            var isCompleted = await _progressService.IsLessonCompletedAsync(userId, lessonId);
+
+            return Ok(new
+            {
+                success = true,
+                completed = isCompleted,
+                lessonId = lessonId
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Ошибка при проверке статуса урока");
             return Problem("Ошибка сервера");
         }
     }
