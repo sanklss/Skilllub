@@ -1,0 +1,6 @@
+@SkilllubLearnbox_HostAddress = http://localhost:5202
+
+GET {{SkilllubLearnbox_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
