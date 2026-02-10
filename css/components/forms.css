@@ -1,0 +1,87 @@
+.form-label {
+    display: block;
+    margin-bottom: 1rem;
+    position: relative;
+}
+
+.form-label span {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+.form-label input,
+.form-label textarea,
+.form-label select {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    font-size: 0.875rem;
+    transition: all 0.2s ease;
+    background-color: var(--bg-primary);
+}
+
+.form-label input:focus,
+.form-label textarea:focus,
+.form-label select:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgb(37 99 235 / 0.1);
+}
+
+.form-label input.field-error,
+.form-label textarea.field-error,
+.form-label select.field-error {
+    border-color: var(--error-color);
+}
+
+.field-error {
+    color: var(--error-color);
+    font-size: 0.75rem;
+    margin-top: 0.25rem;
+    display: block;
+}
+
+.field-status-icon {
+    position: absolute;
+    right: 0.75rem;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+.field-status-icon.success::before {
+    content: "✓";
+    color: var(--success-color);
+}
+
+.field-status-icon.error::before {
+    content: "✗";
+    color: var(--error-color);
+}
+
+.filter-select {
+    padding: 0.5rem 2rem 0.5rem 0.75rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    font-size: 0.875rem;
+    background-color: var(--bg-primary);
+    background-image: url("data:image/svg+xml,...");
+    background-repeat: no-repeat;
+    background-position: right 0.75rem center;
+    background-size: 16px;
+}
+
+.password-strength {
+    margin-top: 0.5rem;
+    height: 4px;
+    background-color: var(--border-color);
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.strength-bar {
+    height: 100%;
+    transition: all 0.3s ease;
+}

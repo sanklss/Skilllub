@@ -1,0 +1,135 @@
+@media (max-width: 768px) {
+    :root {
+        --header-height: 56px;
+        --sidebar-width: 100%;
+    }
+
+    .header-container {
+        padding: 0 0.5rem;
+    }
+
+    .header-nav {
+        display: none;
+    }
+
+    .search-input {
+        width: 180px;
+    }
+
+    .main-container {
+        padding: 1rem 0.5rem;
+    }
+
+    .course-layout {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+
+    .course-sidebar {
+        position: static;
+        margin-bottom: 1rem;
+    }
+
+    .courses-grid {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+
+    .admin-stats-grid,
+    .stats-grid,
+    .teacher-stats-grid {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+
+    .progress-stats {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1rem;
+    }
+
+    .filters-container {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .admin-nav,
+    .teacher-nav {
+        flex-wrap: wrap;
+    }
+
+    .admin-nav-item,
+    .teacher-nav-item {
+        flex: 1;
+        min-width: 120px;
+        text-align: center;
+    }
+
+    .footer-content {
+        grid-template-columns: 1fr;
+        gap: 2rem;
+        text-align: center;
+    }
+
+    .modal-card {
+        margin: 1rem;
+        max-width: none;
+    }
+
+    .step-actions {
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+
+    .step-actions .btn {
+        width: 100%;
+    }
+
+    .action-buttons {
+        flex-direction: column;
+    }
+}
+
+@media (max-width: 1024px) and (min-width: 769px) {
+    .courses-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .admin-stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (min-width: 1200px) {
+    .courses-grid {
+        grid-template-columns: repeat(4, 1fr);
+    }
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --text-primary: #f9fafb;
+        --text-secondary: #d1d5db;
+        --text-muted: #9ca3af;
+        --bg-primary: #111827;
+        --bg-secondary: #1f2937;
+        --bg-card: #1f2937;
+        --bg-hover: #374151;
+        --border-color: #374151;
+    }
+}
+
+@media (prefers-contrast: high) {
+    :root {
+        --border-color: #000000;
+        --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.8);
+        --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.8);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    * {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}

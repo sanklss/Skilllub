@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LearnBox SPA — Supabase Edition</title>
+  <link rel="stylesheet" href="css/main.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="page-wrapper">
+    <header class="stepik-header">
+      <div class="header-container">
+        <div class="header-brand">
+          <div class="logo"></div>
+          <span class="brand-name">LearnBox</span>
+        </div>
+        <nav class="header-nav">
+          <a href="#catalog" class="nav-item active" data-section="catalog">Каталог курсов</a>
+          <a href="#my-courses" class="nav-item" data-section="my-courses">Моё обучение</a>
+          <a href="#profile" class="nav-item" data-section="profile">Профиль</a>
+        </nav>
+        <div class="header-actions">
+          <div class="search-box">
+            <input type="text" placeholder="Поиск курсов..." class="search-input" id="search-input">
+            <button class="search-btn"></button>
+          </div>
+          <div class="user-controls" id="user-controls">
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main class="main-container">
+      <section id="catalog" class="page-section active">
+        <div class="section-header">
+          <h1>Каталог курсов</h1>
+          <p class="subtitle">Выберите курс для обучения</p>
+        </div>
+        <div class="filters-container">
+          <select class="filter-select" id="category-filter">
+            <option value="">Все категории</option>
+            <option value="programming">Программирование</option>
+          </select>
+          <select class="filter-select" id="difficulty-filter">
+            <option value="">Любая сложность</option>
+            <option value="beginner">Для начинающих</option>
+          </select>
+          <button class="btn-secondary" id="reset-filters">Сбросить</button>
+        </div>
+
+        <div class="courses-grid" id="courses-grid">
+        </div>
+      </section>
+
+      <section id="my-courses" class="page-section">
+        <div class="section-header">
+          <h1>Моё обучение</h1>
+          <p class="subtitle">Ваши текущие курсы и прогресс</p>
+        </div>
+        <div class="my-courses-container" id="my-courses-container">
+          <div class="empty-state">
+            <div class="empty-icon"></div>
+            <h3>У вас пока нет активных курсов</h3>
+            <p>Начните обучение, выбрав курс из каталога</p>
+            <button class="btn-primary" onclick="showSection('catalog')">Перейти в каталог</button>
+          </div>
+        </div>
+      </section>
+
+      <section id="course-page" class="page-section">
+        <div class="course-layout">
+          <aside class="course-sidebar">
+            <div class="sidebar-header">
+              <h3 id="sidebar-course-title">Программирование на Python</h3>
+              <div class="course-progress">
+                <div class="progress-bar">
+                  <div class="progress-fill" style="width: 0%"></div>
+                </div>
+                <span class="progress-text">0%</span>
+              </div>
+            </div>
+            <div class="modules-list" id="modules-list">
+            </div>
+          </aside>
+
+          <main class="course-content">
+            <div class="content-header">
+              <nav class="breadcrumb">
+                <a href="#catalog" onclick="showSection('catalog')">Каталог курсов</a> 
+                <span class="breadcrumb-separator">/</span>
+                <span id="breadcrumb-course">Программирование на Python</span>
+              </nav>
+              <h1 id="step-title">Выберите урок</h1>
+              <div class="step-meta">
+                <span id="step-number">Шаг 0 из 0</span>
+                <span class="step-duration"></span>
+              </div>
+            </div>
+            
+            <div class="step-container">
+              <div class="step-content" id="step-content">
+                <p>Выберите урок из списка слева, чтобы начать обучение.</p>
+              </div>
+
+              <div class="quiz-section hidden" id="quiz-section">
+                  <div class="quiz-header">
+                      <h3>Проверка знаний</h3>
+                      <div class="quiz-progress">
+                          <span id="quiz-progress">Вопрос 1 из 5</span>
+                      </div>
+                  </div>
+                  
+                  <div class="quiz-container">
+                      <div class="quiz-question" id="quiz-question">
+                      </div>
+                      <div class="quiz-options" id="quiz-options">
+                      </div>
+                      
+                      <div class="quiz-actions">
+                          <button class="btn-secondary" id="quiz-prev" disabled>← Назад</button>
+                          <button class="btn-primary" id="quiz-next">Далее →</button>
+                          <button class="btn-secondary" id="quiz-close">Закрыть тест</button>
+                      </div>
+                  </div>
+              </div>
+
+              <div class="code-section hidden">
+                <div class="editor-header">
+                  <label>Язык программирования:</label>
+                  <select class="language-select" id="language-select">
+                    <option value="python">Python</option>
+                  </select>
+                </div>
+                <textarea class="code-editor" id="code-editor" placeholder="Напишите ваш код здесь..."></textarea>
+                <div class="editor-actions">
+                  <button class="btn-primary" id="run-code">Запустить код</button>
+                  <button class="btn-secondary" id="reset-code">Сбросить</button>
+                  <button class="btn-success" id="submit-code">Отправить решение</button>
+                </div>
+              </div>
+
+              <div class="results-section hidden" id="results-section">
+                <h3>Результаты проверки</h3>
+              </div>
+
+              <div class="step-actions">
+                <button class="btn-secondary" id="prev-step">← Предыдущий урок</button>
+                <button class="btn-primary" id="next-step">Следующий урок →</button>
+              </div>
+            </div>
+          </main>
+        </div>
+      </section>
+
+      <section id="profile" class="page-section">
+        <div class="profile-container">
+          <div class="profile-header">
+            <h1>Мой профиль</h1>
+            <p class="subtitle">Ваш прогресс, статистика и достижения</p>
+          </div>
+          <div class="profile-card card">
+            <div class="profile-header">
+              <div class="profile-info">
+                <h2 id="profile-username">Гость</h2>
+                <p class="muted" id="profile-email">Войдите, чтобы увидеть данные</p>
+                <p class="muted" id="profile-role"></p>
+              </div>
+            </div>
+            <div class="profile-actions">
+              <button class="ghost" id="edit-profile">Редактировать профиль</button>
+              <button class="ghost" id="view-achievements">Мои достижения</button>
+            </div>
+          </div>
+          <div class="progress-card card" id="progress-summary">
+            <h3>Прогресс обучения</h3>
+            <p class="muted">Войдите, чтобы увидеть ваш прогресс</p>
+            <div class="progress-stats">
+              <div class="stat-item">
+                <span class="stat-value" id="completed-courses">0</span>
+                <span class="stat-label muted">Курсов завершено</span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-value" id="completed-lessons">0</span>
+                <span class="stat-label muted">Уроков пройдено</span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-value" id="solved-challenges">0</span>
+                <span class="stat-label muted">Задач решено</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="admin-panel" class="page-section">
+        <div class="admin-container">
+          <div class="admin-header">
+            <h1>Админ-панель</h1>
+            <p class="subtitle">Управление платформой LearnBox</p>
+          </div>
+
+          <nav class="admin-nav">
+          <button class="admin-nav-item active" id="admin-nav-statistics">
+              Статистика
+          </button>
+          <button class="admin-nav-item" id="admin-nav-users">
+              Пользователи
+          </button>
+          <button class="admin-nav-item" id="admin-nav-courses">
+              Курсы
+          </button>
+          </nav>
+
+          <div class="admin-content">
+            <div id="admin-statistics" class="admin-view">
+                <div class="admin-section-header">
+                    <h2>Статистика платформы</h2>
+                </div>
+                <div class="stats-grid">
+                    <div class="stat-card large">
+                        <h3>Общая статистика</h3>
+                        <p class="muted">Загрузка статистики...</p>
+                    </div>
+                </div>
+            </div>
+
+            <div id="admin-users" class="admin-view hidden">
+                <div class="admin-section-header">
+                    <h2>Управление пользователями</h2>
+                </div>
+                <div class="admin-table-container">
+                    <p class="muted">Загрузка пользователей...</p>
+                </div>
+            </div>
+
+            <div id="admin-courses" class="admin-view hidden">
+                    <div class="admin-section-header">
+                        <h2>Управление курсами</h2>
+                    </div>
+                    <div class="admin-section">
+                        <p class="muted">Функциональность управления курсами будет добавлена в будущем</p>
+                    </div>
+                </div>
+            </div>
+
+            <div id="admin-statistics" class="admin-view hidden">
+              <div class="admin-section-header">
+                <h2>Статистика платформы</h2>
+                <button class="btn-primary" id="refresh-stats">Обновить</button>
+              </div>
+              <div class="stats-grid">
+                <div class="stat-card large">
+                  <h3>Общая статистика</h3>
+                  <p class="muted">Загрузка статистики...</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="teacher-panel" class="page-section">
+          <div class="teacher-container">
+              <div class="teacher-header">
+                  <h1>Панель преподавателя</h1>
+                  <p class="subtitle">Управление курсами и отслеживание прогресса студентов</p>
+              </div>
+
+              <nav class="teacher-nav">
+                  <button class="teacher-nav-item active" id="teacher-nav-courses">
+                      Мои курсы
+                  </button>
+                  <button class="teacher-nav-item" id="teacher-nav-students">
+                      Студенты
+                  </button>
+                  <button class="teacher-nav-item" id="teacher-nav-statistics">
+                      Статистика
+                  </button>
+              </nav>
+
+              <div class="teacher-content">
+                  <div id="teacher-dashboard" class="teacher-view">
+                      <div class="teacher-stats-grid">
+                          <div class="stat-card">
+                              <h3>Мои студенты</h3>
+                              <div class="stat-number">0</div>
+                              <p class="stat-description">Всего обучающихся</p>
+                          </div>
+                          <div class="stat-card">
+                              <h3>Активные курсы</h3>
+                              <div class="stat-number">0</div>
+                              <p class="stat-description">Курсы с активными студентами</p>
+                          </div>
+                          <div class="stat-card">
+                              <h3>Пройдено уроков</h3>
+                              <div class="stat-number">0</div>
+                              <p class="stat-description">Всего студентами</p>
+                          </div>
+                      </div>
+                  </div>
+
+                  <div id="teacher-courses" class="teacher-view hidden">
+                      <div class="teacher-section-header">
+                          <h2>Мои курсы</h2>
+                          <button class="btn-primary" id="create-course-btn">+ Создать курс</button>
+                      </div>
+                      <div class="info-card">
+                          <h3>Функциональность в разработке</h3>
+                          <p>В ближайшее время здесь появится возможность создавать и управлять курсами.</p>
+                      </div>
+                  </div>
+
+                  <div id="teacher-students" class="teacher-view hidden">
+                      <div class="teacher-section-header">
+                          <h2>Мои студенты</h2>
+                      </div>
+                      <div class="info-card">
+                          <h3>Отслеживание прогресса студентов</h3>
+                          <p>После создания курсов вы сможете отслеживать прогресс ваших студентов.</p>
+                      </div>
+                  </div>
+
+                  <div id="teacher-statistics" class="teacher-view hidden">
+                      <div class="teacher-section-header">
+                          <h2>Статистика преподавания</h2>
+                      </div>
+                      <div class="stats-grid">
+                          <div class="stat-card large">
+                              <h3>Общая статистика</h3>
+                              <p class="muted">Статистика появится после создания курсов</p>
+                          </div>
+                      </div>
+                  </div>
+              </div>
+          </div>
+      </section>
+
+      <section id="home" class="section">
+        <header class="page-header">
+          <h1 id="home-title">Добро пожаловать в LearnBox</h1>
+          <p class="subtitle muted">Интерактивное обучение программированию и не только</p>
+        </header>
+        <div class="hero-banner">
+          <div class="hero-content">
+            <h2>Начните свой путь в программировании</h2>
+            <p class="muted">Практические курсы, интерактивные задачи и отслеживание прогресса</p>
+            <a href="#catalog" class="primary-btn" onclick="showSection('catalog')">Посмотреть курсы</a>
+          </div>
+        </div>
+      </section>
+
+      <section id="challenges" class="section">
+        <header class="page-header">
+          <h1 id="challenges-title">Задачи</h1>
+          <p class="subtitle muted">Практикуйтесь с интерактивными задачами</p>
+        </header>
+        <div class="challenge-list" id="challenge-list" role="list" aria-label="Список задач"></div>
+      </section>
+
+      <section id="community" class="section">
+        <header class="page-header">
+          <h1 id="community-title">Сообщество</h1>
+          <p class="subtitle muted">Общайтесь, делитесь опытом и задавайте вопросы</p>
+        </header>
+        <div class="community-container">
+          <div class="discussion-card card">
+            <h3>Обсуждения</h3>
+            <ul class="discussion-list" id="discussion-list" role="list" aria-label="Список обсуждений"></ul>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+<!-- МОДАЛЬНЫЕ ОКНА (ТОЛЬКО ОДИН ЭКЗЕМПЛЯР КАЖДОГО) -->
+<div id="modal-login" class="modal hidden" role="dialog" aria-labelledby="login-title">
+    <div class="modal-card">
+        <header><h3 id="login-title">Вход в LearnBox</h3></header>
+        <form class="modal-form" id="form-login" novalidate autocomplete="off">
+            <label for="login-email" class="form-label">
+                <input id="login-email" type="email" placeholder="Введите ваш email" required aria-required="true" autocomplete="username">
+            </label>
+            <label for="login-password" class="form-label">
+                <input id="login-password" type="password" placeholder="Введите ваш пароль" required aria-required="true" autocomplete="current-password">
+            </label>
+            <div class="form-options">
+                <a href="#forgot-password" class="muted" id="show-forgot-password">Забыли пароль?</a>
+            </div>
+            <div class="modal-actions">
+                <button type="submit" id="login-ok" class="primary-btn">Войти</button>
+                <button type="button" class="ghost" id="login-cancel">Отмена</button>
+            </div>
+        </form>
+        <div class="modal-footer">
+            <p class="muted">Нет аккаунта? <a href="#signup" id="to-signup">Зарегистрируйтесь</a></p>
+        </div>
+    </div>
+</div>
+
+<div id="modal-signup" class="modal hidden" role="dialog" aria-labelledby="signup-title">
+    <div class="modal-card">
+        <header><h3 id="signup-title">Регистрация в LearnBox</h3></header>
+        <form class="modal-form" id="form-signup" novalidate autocomplete="off">
+            <label for="signup-username" class="form-label">
+                <input id="signup-username" type="text" placeholder="Введите имя пользователя" required aria-required="true" autocomplete="username">
+            </label>
+            <label for="signup-email" class="form-label">
+                <input id="signup-email" type="email" placeholder="Введите ваш email" required aria-required="true" autocomplete="email">
+            </label>
+            <label for="signup-phone" class="form-label">
+                <input id="signup-phone" type="tel" placeholder="Номер телефона (необязательно)" autocomplete="tel">
+            </label>
+            
+            <div class="filter-group">
+                <label for="signup-role" class="filter-label">Роль:</label>
+                <select id="signup-role" name="role" required aria-required="true" class="filter-select">
+                    <option value="student">Студент</option>
+                    <option value="teacher">Преподаватель</option>
+                </select>
+            </div>
+
+            <label for="signup-password" class="form-label">
+                <input id="signup-password" type="password" placeholder="Придумайте пароль" required minlength="6" aria-required="true" autocomplete="new-password">
+                <div class="password-strength">
+                    <div class="strength-bar" id="signup-password-strength-bar"></div>
+                </div>
+            </label>
+            
+            <label for="signup-password-confirm" class="form-label">
+                <input id="signup-password-confirm" type="password" placeholder="Повторите пароль" required aria-required="true" autocomplete="new-password">
+            </label>
+            
+            <div class="modal-actions">
+                <button type="submit" id="signup-ok" class="primary-btn">Зарегистрироваться</button>
+                <button type="button" class="ghost" id="signup-cancel">Отмена</button>
+            </div>
+        </form>
+        <div class="modal-footer">
+            <p class="muted">Уже есть аккаунт? <a href="#login" id="to-login">Войдите</a></p>
+        </div>
+    </div>
+</div>
+
+<div id="modal-forgot-password" class="modal hidden" role="dialog" aria-labelledby="forgot-password-title">
+    <div class="modal-card">
+        <header><h3 id="forgot-password-title">Восстановить пароль</h3></header>
+        <form class="modal-form" id="form-forgot-password" novalidate>
+            <label for="forgot-email" class="form-label">
+                <input id="forgot-email" type="email" placeholder="Введите ваш email" required aria-required="true">
+            </label>
+            <div class="modal-actions">
+                <button type="submit" id="forgot-ok" class="primary-btn">Отправить код восстановления</button>
+                <button type="button" class="ghost" id="forgot-cancel">Отмена</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="modal-reset-code" class="modal hidden">
+    <div class="modal-card">
+        <header><h3>Введите код восстановления</h3></header>
+        <form class="modal-form" id="form-reset-code" novalidate>
+            <p class="muted">Мы отправили код восстановления на ваш email</p>
+            <label for="reset-code" class="form-label">
+                <input id="reset-code" type="text" placeholder="Введите 6-значный код" required maxlength="6">
+            </label>
+            <div class="modal-actions">
+                <button type="submit" id="reset-code-ok" class="primary-btn">Продолжить</button>
+                <button type="button" class="ghost" id="reset-code-cancel">Отмена</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="modal-new-password" class="modal hidden" role="dialog" aria-labelledby="new-password-title">
+    <div class="modal-card">
+        <header><h3 id="new-password-title">Создание нового пароля</h3></header>
+        <form class="modal-form" id="form-new-password" novalidate>
+            <label for="new-password" class="form-label">
+                <input id="new-password" type="password" placeholder="Введите новый пароль" required minlength="6" aria-required="true" autocomplete="new-password">
+                <div class="password-strength">
+                    <div class="strength-bar" id="new-password-strength-bar"></div>
+                </div>
+            </label>
+            <label for="confirm-new-password" class="form-label">
+                <input id="confirm-new-password" type="password" placeholder="Повторите новый пароль" required aria-required="true" autocomplete="new-password">
+            </label>
+            <div class="modal-actions">
+                <button type="submit" id="new-password-ok" class="primary-btn">Сохранить новый пароль</button>
+                <button type="button" class="ghost" id="new-password-cancel">Отмена</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="modal-change-password" class="modal hidden" role="dialog" aria-labelledby="change-password-title">
+    <div class="modal-card">
+        <header><h3 id="change-password-title">Смена пароля</h3></header>
+        <form class="modal-form" id="change-password-form" novalidate>
+            <label for="current-password" class="form-label">
+                <input id="current-password" type="password" placeholder="Введите текущий пароль" required aria-required="true" autocomplete="current-password">
+            </label>
+            <label for="change-new-password" class="form-label">
+                <input id="change-new-password" type="password" placeholder="Введите новый пароль" required minlength="6" aria-required="true" autocomplete="new-password">
+                <div class="password-strength">
+                    <div class="strength-bar" id="change-password-strength-bar"></div>
+                </div>
+            </label>
+            <label for="change-confirm-password" class="form-label">
+                <input id="change-confirm-password" type="password" placeholder="Повторите новый пароль" required aria-required="true" autocomplete="new-password">
+            </label>
+            <div class="modal-actions">
+                <button type="submit" id="change-password-ok" class="primary-btn">Сменить пароль</button>
+                <button type="button" class="ghost" id="change-password-cancel">Отмена</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- TEMPLATES -->
+<template id="admin-dashboard-template">
+    <div class="admin-stats-grid">
+      <div class="stat-card">
+        <h3>Всего пользователей</h3>
+        <div class="stat-number">{{totalUsers}}</div>
+      </div>
+      <div class="stat-card">
+        <h3>Активных сегодня</h3>
+        <div class="stat-number">{{activeToday}}</div>
+      </div>
+      <div class="stat-card">
+        <h3>Новых за неделю</h3>
+        <div class="stat-number">{{newThisWeek}}</div>
+      </div>
+    </div>
+    <div class="stats-by-role">
+      <h3>Пользователи по ролям</h3>
+      <div class="role-stats">
+        {{roleStats}}
+      </div>
+    </div>
+</template>
+
+<template id="admin-users-template">
+    <div class="admin-section-header">
+      <h2>Управление пользователями</h2>
+      <div>
+        <button class="btn-primary" id="add-user-btn">+ Добавить пользователя</button>
+        <button class="btn-secondary" id="refresh-users">Обновить</button>
+      </div>
+    </div>
+    <div class="admin-table-container">
+      {{content}}
+    </div>
+</template>
+
+<template id="user-row-template">
+    <tr data-user-id="{{id}}">
+        <td>{{username}}</td>
+        <td>{{email}}</td>
+        <td>{{phone}}</td>
+        <td>
+            <select class="role-select" data-user-id="{{id}}">
+                {{roleSelect}}
+            </select>
+        </td>
+        <td>{{lastLogin}}</td>
+        <td>
+            <div class="action-buttons">
+                <button class="btn-secondary btn-sm edit-user-btn" data-user-id="{{id}}">
+                    Редактировать
+                </button>
+                <button class="btn-warning btn-sm revoke-sessions-btn" data-user-id="{{id}}">
+                    Завершить сессии
+                </button>
+                <button class="btn-danger btn-sm delete-user-btn" data-user-id="{{id}}">
+                    Удалить
+                </button>
+            </div>
+        </td>
+    </tr>
+</template>
+
+<template id="admin-statistics-template">
+    <div class="stats-grid">
+      <div class="stat-card large">
+        <h3>Общая статистика</h3>
+        <div class="stat-item">
+          <span>Всего пользователей:</span>
+          <strong>{{totalUsers}}</strong>
+        </div>
+        <div class="stat-item">
+          <span>Активных сегодня:</span>
+          <strong>{{activeToday}}</strong>
+        </div>
+        <div class="stat-item">
+          <span>Новых за неделю:</span>
+          <strong>{{newThisWeek}}</strong>
+        </div>
+      </div>
+      <div class="stat-card large">
+        <h3>Распределение по ролям</h3>
+        {{roleDistribution}}
+      </div>
+    </div>
+</template>
+
+<template id="admin-courses-template">
+    <div class="admin-section">
+      <h3>Управление курсами</h3>
+      <p class="muted">Функциональность управления курсами будет добавлена в будущем</p>
+      <button class="btn-primary" onclick="app.adminManager.createCourse()">Создать курс</button>
+    </div>
+</template>
+
+<template id="modal-edit-user-template">
+    <div class="modal-card">
+      <header><h3>Редактирование пользователя</h3></header>
+      <form class="modal-form" id="form-edit-user">
+        <input type="hidden" id="edit-user-id">
+        <label for="edit-username" class="form-label">
+          <input id="edit-username" type="text" placeholder=" " required>
+          <span>Имя пользователя</span>
+        </label>
+        <label for="edit-email" class="form-label">
+          <input id="edit-email" type="email" placeholder=" " required>
+          <span>Email</span>
+        </label>
+        <label for="edit-phone" class="form-label">
+          <input id="edit-phone" type="tel" placeholder=" ">
+          <span>Телефон</span>
+        </label>
+        <div class="modal-actions">
+          <button type="button" id="edit-user-save" class="btn-primary">Сохранить</button>
+          <button type="button" class="btn-secondary" id="edit-user-cancel">Отмена</button>
+          <button type="button" class="btn-warning" id="change-password-btn">Сменить пароль</button>
+        </div>
+      </form>
+    </div>
+</template>
+
+<template id="modal-change-password-admin-template">
+    <div class="modal-card">
+      <header>
+        <h3>Смена пароля</h3>
+        <p class="muted">Пользователь: <span id="change-password-username"></span></p>
+      </header>
+      <form class="modal-form" id="form-change-password-admin">
+        <input type="hidden" id="change-password-user-id">
+        <label for="new-password-admin" class="form-label">
+          <input id="new-password-admin" type="password" placeholder=" " required minlength="6">
+          <span>Новый пароль</span>
+        </label>
+        <label for="confirm-new-password-admin" class="form-label">
+          <input id="confirm-new-password-admin" type="password" placeholder=" " required>
+          <span>Подтверждение пароля</span>
+        </label>
+        <div class="modal-actions">
+          <button type="button" id="change-password-save" class="btn-primary">Сохранить пароль</button>
+          <button type="button" class="btn-secondary" id="change-password-cancel">Отмена</button>
+        </div>
+      </form>
+    </div>
+</template>
+
+<template id="modal-create-user-template">
+    <div class="modal-card">
+      <header><h3>Добавление пользователя</h3></header>
+      <form class="modal-form" id="form-create-user">
+        <label for="create-username" class="form-label">
+          <input id="create-username" type="text" placeholder=" " required>
+          <span>Имя пользователя *</span>
+        </label>
+        <label for="create-email" class="form-label">
+          <input id="create-email" type="email" placeholder=" " required>
+          <span>Email *</span>
+        </label>
+        <label for="create-phone" class="form-label">
+          <input id="create-phone" type="tel" placeholder=" ">
+          <span>Телефон</span>
+        </label>
+        <label for="create-password" class="form-label">
+          <input id="create-password" type="password" placeholder=" " required minlength="6">
+          <span>Пароль *</span>
+          <div class="password-strength">
+            <div class="strength-bar" id="create-password-strength-bar"></div>
+          </div>
+        </label>
+        <label for="create-role" class="form-label">
+          <select id="create-role" class="filter-select" required>
+            <option value="student">Студент</option>
+            <option value="teacher">Преподаватель</option>
+            <option value="admin">Администратор</option>
+          </select>
+          <span>Роль *</span>
+        </label>
+        <div class="modal-actions">
+          <button type="button" id="create-user-save" class="btn-primary">Создать пользователя</button>
+          <button type="button" class="btn-secondary" id="create-user-cancel">Отмена</button>
+        </div>
+      </form>
+    </div>
+</template>
+
+<template id="courses-grid-template">
+    {{courses}}
+</template>
+
+<template id="course-card-template">
+    <div class="course-card" data-course-id="{{id}}" onclick="app.courseManager.openCourse('{{id}}')">
+      <h3 class="course-title">{{title}}</h3>
+      <p class="course-description">{{description}}</p>
+      <div class="course-meta">
+        <span class="difficulty {{difficulty}}">{{difficultyText}}</span>
+      </div>
+    </div>
+</template>
+
+<template id="empty-courses-template">
+    <div class="empty-state">
+      <div class="empty-icon">🤔</div>
+      <h3>Курсы не найдены</h3>
+      <p>Попробуйте обновить страницу или проверьте подключение</p>
+    </div>
+</template>
+
+<template id="teacher-courses-template">
+    <div class="teacher-section-header">
+      <h2>Мои курсы</h2>
+    </div>
+    <div class="teacher-content">
+      <div class="info-card">
+        <h3>Функциональность в разработке</h3>
+        <p>В ближайшее время здесь появится возможность:</p>
+        <ul class="feature-list">
+          <li>Создавать и редактировать курсы</li>
+          <li>Добавлять модули и уроки</li>
+          <li>Загружать учебные материалы</li>
+          <li>Настраивать тесты и задания</li>
+        </ul>
+        <p class="muted">Следите за обновлениями!</p>
+      </div>
+    </div>
+</template>
+
+<template id="teacher-students-template">
+    <div class="teacher-section-header">
+      <h2>Мои студенты</h2>
+    </div>
+    <div class="teacher-content">
+      <div class="info-card">
+        <h3>Отслеживание прогресса студентов</h3>
+        <p>После создания курсов вы сможете:</p>
+        <ul class="feature-list">
+          <li>Просматривать список студентов</li>
+          <li>Отслеживать прогресс по каждому курсу</li>
+          <li>Видеть результаты тестов и заданий</li>
+          <li>Анализировать успеваемость</li>
+        </ul>
+        <p class="muted">Функция станет доступна после добавления первых курсов</p>
+      </div>
+    </div>
+</template>
+
+<template id="teacher-statistics-template">
+    <div class="teacher-section-header">
+      <h2>Статистика преподавания</h2>
+    </div>
+    <div class="teacher-content">
+      <div class="stats-grid">
+        <div class="stat-card large">
+          <h3>Общая статистика</h3>
+          <div class="stat-item">
+            <span>Всего студентов:</span>
+            <strong>{{totalStudents}}</strong>
+          </div>
+          <div class="stat-item">
+            <span>Средний прогресс:</span>
+            <strong>{{averageProgress}}%</strong>
+          </div>
+        </div>
+        <div class="stat-card large">
+          <h3>Популярные курсы</h3>
+          <p class="muted">Статистика по курсам появится после их создания</p>
+        </div>
+      </div>
+    </div>
+</template>
+
+<template id="quiz-container-template">
+    <div class="quiz-header">
+      <h3>Проверка знаний</h3>
+      <div class="quiz-progress">
+        <span id="quiz-progress">Вопрос 1 из 5</span>
+      </div>
+    </div>
+    <div class="quiz-container">
+      <div class="quiz-question" id="quiz-question"></div>
+      <div class="quiz-options" id="quiz-options"></div>
+      <div class="quiz-actions">
+        <button class="btn-secondary" id="quiz-prev" disabled>← Назад</button>
+        <button class="btn-primary" id="quiz-next">Далее →</button>
+        <button class="btn-secondary" id="quiz-close">Закрыть тест</button>
+      </div>
+    </div>
+</template>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.44.0/min/vs/loader.js"></script>
+<script type="module" src="src/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,81 @@
+@import url('./base/variables.css');
+@import url('./base/reset.css');
+@import url('./base/typography.css');
+
+@import url('./components/buttons.css');
+@import url('./components/forms.css');
+@import url('./components/modals.css');
+@import url('./components/cards.css');
+@import url('./components/navigation.css');
+@import url('./components/quiz.css'); 
+
+
+@import url('./layout/header.css');
+@import url('./layout/footer.css');
+@import url('./layout/grid.css');
+@import url('./layout/sidebar.css');
+
+@import url('./pages/admin.css');
+@import url('./pages/teacher.css');
+@import url('./pages/courses.css');
+@import url('./pages/profile.css');
+
+@import url('./utilities/utilities.css');
+@import url('./utilities/responsive.css');
+
+.toast-container {
+    position: fixed;
+    top: 1rem;
+    right: 1rem;
+    z-index: var(--z-toast);
+}
+
+.toast {
+    padding: 1rem 1.5rem;
+    border-radius: var(--border-radius);
+    margin-bottom: 0.5rem;
+    box-shadow: var(--shadow-md);
+    animation: slideIn 0.3s ease;
+}
+
+.toast-success {
+    background-color: var(--success-color);
+    color: white;
+}
+
+.toast-error {
+    background-color: var(--error-color);
+    color: white;
+}
+
+.toast-warning {
+    background-color: var(--warning-color);
+    color: white;
+}
+
+.toast-info {
+    background-color: var(--primary-color);
+    color: white;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+.empty-state {
+    text-align: center;
+    padding: 3rem 1rem;
+}
+
+.empty-icon {
+    font-size: 4rem;
+    margin-bottom: 1rem;
+    opacity: 0.5;
+}

@@ -1,0 +1,37 @@
+:root {
+    --primary-color: #2563eb;
+    --primary-hover: #1d4ed8;
+    --secondary-color: #64748b;
+    --success-color: #10b981;
+    --warning-color: #f59e0b;
+    --error-color: #ef4444;
+    --danger-color: #dc2626;
+    
+    --text-primary: #1f2937;
+    --text-secondary: #6b7280;
+    --text-muted: #9ca3af;
+    
+    --bg-primary: #ffffff;
+    --bg-secondary: #f8fafc;
+    --bg-card: #ffffff;
+    --bg-hover: #f1f5f9;
+    
+    --border-color: #e5e7eb;
+    --border-radius: 8px;
+    --border-radius-lg: 12px;
+    
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+    
+    --header-height: 64px;
+    --sidebar-width: 280px;
+    --container-max-width: 1200px;
+    
+    --font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-family-mono: 'Fira Code', 'Courier New', monospace;
+    
+    --z-dropdown: 1000;
+    --z-modal: 2000;
+    --z-toast: 3000;
+}

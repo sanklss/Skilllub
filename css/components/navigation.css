@@ -1,0 +1,45 @@
+.admin-nav,
+.teacher-nav {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid var(--border-color);
+    margin-bottom: 2rem;
+    background-color: var(--bg-primary);
+}
+
+.admin-nav-item,
+.teacher-nav-item {
+    padding: 1rem 1.5rem;
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    font-weight: 500;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s ease;
+    cursor: pointer;
+    position: relative;
+}
+
+.admin-nav-item:hover,
+.teacher-nav-item:hover {
+    color: var(--text-primary);
+    background-color: var(--bg-hover);
+}
+
+.admin-nav-item.active,
+.teacher-nav-item.active {
+    color: var(--primary-color);
+    border-bottom-color: var(--primary-color);
+}
+
+.admin-nav-item:disabled,
+.teacher-nav-item:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.admin-nav-item:disabled:hover,
+.teacher-nav-item:disabled:hover {
+    background-color: transparent;
+    color: var(--text-secondary);
+}

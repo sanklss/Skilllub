@@ -1,0 +1,49 @@
+.site-footer {
+    background-color: var(--bg-secondary);
+    border-top: 1px solid var(--border-color);
+    margin-top: 4rem;
+    padding: 3rem 0 2rem;
+}
+
+.footer-content {
+    max-width: var(--container-max-width);
+    margin: 0 auto;
+    padding: 0 1rem;
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr;
+    gap: 3rem;
+    margin-bottom: 2rem;
+}
+
+.footer-brand a {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 0.5rem;
+    display: block;
+}
+
+.footer-links ul,
+.footer-social ul {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.footer-links a,
+.footer-social a {
+    color: var(--text-secondary);
+    transition: color 0.2s ease;
+}
+
+.footer-links a:hover,
+.footer-social a:hover {
+    color: var(--text-primary);
+}
+
+.footer-content p:last-child {
+    text-align: center;
+    padding-top: 2rem;
+    border-top: 1px solid var(--border-color);
+    grid-column: 1 / -1;
+}

@@ -1,0 +1,59 @@
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: var(--z-modal);
+    padding: 1rem;
+}
+
+.modal.hidden {
+    display: none;
+}
+
+.modal-card {
+    background-color: var(--bg-primary);
+    border-radius: var(--border-radius-lg);
+    box-shadow: var(--shadow-lg);
+    width: 100%;
+    max-width: 400px;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.modal-card header {
+    padding: 1.5rem 1.5rem 0;
+    margin-bottom: 1rem;
+}
+
+.modal-card header h3 {
+    margin: 0;
+    font-size: 1.25rem;
+}
+
+.modal-form {
+    padding: 0 1.5rem;
+}
+
+.modal-actions {
+    display: flex;
+    gap: 0.75rem;
+    justify-content: flex-end;
+    padding: 1.5rem;
+    border-top: 1px solid var(--border-color);
+    margin-top: 1rem;
+}
+
+.modal-footer {
+    padding: 0 1.5rem 1.5rem;
+    text-align: center;
+}
+
+.modal-footer .muted {
+    font-size: 0.875rem;
+}

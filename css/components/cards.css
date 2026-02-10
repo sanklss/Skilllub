@@ -1,0 +1,93 @@
+.card {
+    background-color: var(--bg-card);
+    border-radius: var(--border-radius-lg);
+    box-shadow: var(--shadow-sm);
+    border: 1px solid var(--border-color);
+    overflow: hidden;
+}
+
+.stat-card {
+    padding: 1.5rem;
+    background-color: var(--bg-card);
+    border-radius: var(--border-radius-lg);
+    border: 1px solid var(--border-color);
+}
+
+.stat-card.large {
+    padding: 2rem;
+}
+
+.stat-card h3 {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    margin-bottom: 0.5rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.stat-number {
+    font-size: 2.25rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    line-height: 1;
+}
+
+.course-card {
+    background-color: var(--bg-card);
+    border-radius: var(--border-radius-lg);
+    border: 1px solid var(--border-color);
+    padding: 1.5rem;
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+.course-card:hover {
+    border-color: var(--primary-color);
+    box-shadow: var(--shadow-md);
+    transform: translateY(-2px);
+}
+
+.course-title {
+    font-size: 1.125rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    color: var(--text-primary);
+}
+
+.course-description {
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+    margin-bottom: 1rem;
+    line-height: 1.5;
+}
+
+.course-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.difficulty {
+    padding: 0.25rem 0.5rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.difficulty.beginner {
+    background-color: #dcfce7;
+    color: #166534;
+}
+
+.difficulty.intermediate {
+    background-color: #fef3c7;
+    color: #92400e;
+}
+
+.difficulty.advanced {
+    background-color: #fee2e2;
+    color: #991b1b;
+}

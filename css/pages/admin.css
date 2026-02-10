@@ -1,0 +1,117 @@
+.admin-container {
+    max-width: var(--container-max-width);
+    margin: 0 auto;
+}
+
+.admin-nav {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid var(--border-color);
+    margin-bottom: 2rem;
+}
+
+.admin-nav-item {
+    padding: 1rem 1.5rem;
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    font-weight: 500;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+.admin-nav-item:hover {
+    color: var(--text-primary);
+}
+
+.admin-nav-item.active {
+    color: var(--primary-color);
+    border-bottom-color: var(--primary-color);
+}
+
+.admin-section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+}
+
+.admin-section-header h2 {
+    margin: 0;
+}
+
+.admin-table-container {
+    background-color: var(--bg-card);
+    border-radius: var(--border-radius-lg);
+    border: 1px solid var(--border-color);
+    overflow: hidden;
+}
+
+.admin-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.admin-table th {
+    background-color: var(--bg-secondary);
+    padding: 1rem;
+    text-align: left;
+    font-weight: 600;
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.admin-table td {
+    padding: 1rem;
+    border-bottom: 1px solid var(--border-color);
+    vertical-align: middle;
+}
+
+.admin-table tr:last-child td {
+    border-bottom: none;
+}
+
+.admin-table tr:hover {
+    background-color: var(--bg-hover);
+}
+
+.role-select {
+    padding: 0.375rem 0.75rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    font-size: 0.875rem;
+    background-color: var(--bg-primary);
+}
+
+.action-buttons {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.role-stats {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.role-stat {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem;
+    background-color: var(--bg-secondary);
+    border-radius: var(--border-radius);
+}
+
+.role-name {
+    font-weight: 500;
+}
+
+.role-count {
+    font-weight: 600;
+    color: var(--primary-color);
+}
