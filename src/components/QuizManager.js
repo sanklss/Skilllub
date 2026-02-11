@@ -1,14 +1,17 @@
 // src/components/QuizManager.js
 export class QuizManager {
-    constructor(apiService, uiManager, authManager) {
+    constructor(apiService, uiManager, authManager, courseManager) {
         this.api = apiService;
         this.uiManager = uiManager;
         this.authManager = authManager;
+        this.courseManager = courseManager;
         this.currentQuizQuestions = [];
         this.currentQuestionIndex = 0;
         this.userAnswers = {};
         this.isQuizSubmitted = false;
         this.correctAnswersCount = 0;
+        this.lessonId = null;
+        this.quizResult = null;
     }
 
     initialize() {
@@ -34,6 +37,8 @@ export class QuizManager {
                 this.userAnswers = {};
                 this.isQuizSubmitted = false;
                 this.correctAnswersCount = 0;
+                this.lessonId = lessonId;
+                this.quizResult = null;
                 
                 this.uiManager.showQuizSection();
                 this.renderQuiz();
@@ -54,58 +59,99 @@ export class QuizManager {
         const quizContainer = document.getElementById('quiz-section');
         if (!quizContainer) return;
 
+        const totalQuestions = this.currentQuizQuestions.length;
+        const isPassed = this.quizResult?.isPassed || false;
+        const score = this.quizResult?.score || 0;
+
         quizContainer.innerHTML = `
             <div class="quiz-header">
                 <h3>Проверка знаний</h3>
-                <button class="btn-secondary btn-sm" id="quiz-close">✕</button>
+                <div class="quiz-controls">
+                    <button class="btn-secondary btn-sm" id="quiz-close">✕</button>
+                </div>
             </div>
             
-            <div class="quiz-questions">
-                ${this.currentQuizQuestions.map((question, index) => `
-                    <div class="quiz-question" data-question-id="${question.id}">
-                        <div class="question-text">
-                            <strong>Вопрос ${index + 1}:</strong> ${question.questionText}
-                        </div>
-                        <div class="quiz-options">
-                            ${[1, 2, 3, 4].map(optionNum => `
-                                <label class="quiz-option">
-                                    <input type="radio" 
-                                           name="question_${question.id}" 
-                                           value="${optionNum}"
-                                           ${this.isQuizSubmitted && optionNum === question.correctOption ? 'disabled' : ''}
-                                           ${this.userAnswers[question.id] === optionNum ? 'checked' : ''}>
-                                    <span class="option-text">${question[`option${optionNum}`]}</span>
-                                </label>
-                            `).join('')}
-                        </div>
-                        ${this.isQuizSubmitted ? `
-                            <div class="quiz-result ${this.userAnswers[question.id] === question.correctOption ? 'correct' : 'incorrect'}">
-                                ${this.userAnswers[question.id] === question.correctOption ? 
-                                    '✓ Правильно' : 
-                                    `✗ Неправильно. Правильный ответ: ${question[`option${question.correctOption}`]}`}
-                                ${question.explanation ? `<div class="explanation">${question.explanation}</div>` : ''}
+            ${!this.isQuizSubmitted ? `
+                <div class="quiz-questions">
+                    ${this.currentQuizQuestions.map((question, index) => `
+                        <div class="quiz-question" data-question-id="${question.id}">
+                            <div class="question-text">
+                                <strong>Вопрос ${index + 1}:</strong> ${question.questionText}
                             </div>
-                        ` : ''}
-                    </div>
-                `).join('')}
-            </div>
-            
-            <div class="quiz-actions">
-                ${!this.isQuizSubmitted ? `
+                            <div class="quiz-options">
+                                ${[1, 2, 3, 4].map(optionNum => `
+                                    <label class="quiz-option ${this.userAnswers[question.id] === optionNum ? 'selected' : ''}">
+                                        <input type="radio" 
+                                               name="question_${question.id}" 
+                                               value="${optionNum}"
+                                               ${this.userAnswers[question.id] === optionNum ? 'checked' : ''}>
+                                        <span class="option-letter">${String.fromCharCode(64 + optionNum)}</span>
+                                        <span class="option-text">${question[`option${optionNum}`]}</span>
+                                    </label>
+                                `).join('')}
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+                
+                <div class="quiz-actions">
                     <button class="btn-primary" id="quiz-submit">
                         Проверить решение
                     </button>
-                ` : `
-                    <div class="quiz-summary">
-                        <strong>Результат:</strong> ${this.correctAnswersCount} из ${this.currentQuizQuestions.length} правильно
-                        ${this.correctAnswersCount === this.currentQuizQuestions.length ? 
-                            '✅ Отлично! Тест пройден.' : 
-                            '🔄 Попробуйте еще раз.'}
+                </div>
+            ` : `
+                <div class="quiz-results">
+                    <div class="result-summary ${isPassed ? 'passed' : 'failed'}">
+                        <div class="result-score">
+                            <span class="score-value">${score}%</span>
+                        </div>
+                        <div class="result-text">
+                            <h4>${isPassed ? 'Тест пройден!' : 'Тест не пройден'}</h4>
+                            <p>Правильных ответов: ${this.correctAnswersCount} из ${totalQuestions}</p>
+                            <p class="result-message">${this.quizResult?.message || ''}</p>
+                        </div>
                     </div>
-                    <button class="btn-secondary" id="quiz-retry">Пройти заново</button>
-                    <button class="btn-primary" id="quiz-continue">Продолжить</button>
-                `}
-            </div>
+                    
+                    <div class="detailed-results">
+                        <h4>Детализация ответов:</h4>
+                        ${this.currentQuizQuestions.map((question, index) => {
+                            const userAnswer = this.userAnswers[question.id];
+                            const isCorrect = userAnswer === question.correctOption;
+                            return `
+                                <div class="question-result ${isCorrect ? 'correct' : 'incorrect'}">
+                                    <div class="question-result-header">
+                                        <span class="question-number">Вопрос ${index + 1}</span>
+                                        <span class="result-status ${isCorrect ? 'correct' : 'incorrect'}">
+                                            ${isCorrect ? '✓ Верно' : '✗ Неверно'}
+                                        </span>
+                                    </div>
+                                    <div class="question-text">${question.questionText}</div>
+                                    <div class="answer-details">
+                                        <div class="user-answer">
+                                            <strong>Ваш ответ:</strong> ${question[`option${userAnswer}`] || 'Не отвечен'}
+                                        </div>
+                                        <div class="correct-answer">
+                                            <strong>Правильный ответ:</strong> ${question[`option${question.correctOption}`]}
+                                        </div>
+                                        ${question.explanation ? `
+                                            <div class="explanation">
+                                                <strong>Пояснение:</strong> ${question.explanation}
+                                            </div>
+                                        ` : ''}
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                    
+                    <div class="quiz-actions">
+                        <button class="btn-secondary" id="quiz-retry">🔄 Пройти заново</button>
+                        <button class="btn-primary" id="quiz-continue" ${!isPassed ? 'disabled' : ''}>
+                            Продолжить обучение
+                        </button>
+                    </div>
+                </div>
+            `}
         `;
 
         this.setupQuizEventListeners();
@@ -113,7 +159,7 @@ export class QuizManager {
         if (!this.isQuizSubmitted) {
             this.setupOptionListeners();
         } else {
-            this.highlightCorrectAnswers();
+            this.setupResultListeners();
         }
     }
 
@@ -123,10 +169,15 @@ export class QuizManager {
                 const questionId = e.target.closest('.quiz-question').dataset.questionId;
                 const answer = parseInt(e.target.value);
                 this.userAnswers[questionId] = answer;
-                console.log(`Ответ на вопрос ${questionId}: ${answer}`);
+                
+                const optionLabels = document.querySelectorAll(`.quiz-question[data-question-id="${questionId}"] .quiz-option`);
+                optionLabels.forEach(label => label.classList.remove('selected'));
+                e.target.closest('.quiz-option').classList.add('selected');
             });
         });
+    }
 
+    setupResultListeners() {
         document.getElementById('quiz-retry')?.addEventListener('click', () => this.retryQuiz());
         document.getElementById('quiz-continue')?.addEventListener('click', () => this.continueAfterQuiz());
     }
@@ -143,8 +194,7 @@ export class QuizManager {
 
             if (answeredCount < totalQuestions) {
                 const confirmSubmit = window.confirm(
-                    `Вы ответили на ${answeredCount} из ${totalQuestions} вопросов. 
-                    Отправить ответы? Неотвеченные вопросы будут засчитаны как неправильные.`
+                    `Вы ответили на ${answeredCount} из ${totalQuestions} вопросов. Отправить ответы? Неотвеченные вопросы будут засчитаны как неправильные.`
                 );
                 if (!confirmSubmit) return;
             }
@@ -161,23 +211,22 @@ export class QuizManager {
                 throw new Error('Не удалось определить идентификатор урока');
             }
 
-            // Отправляем ответы
             const result = await this.api.submitQuizAnswers(lessonId, answers);
             
             if (result.success) {
                 this.isQuizSubmitted = true;
                 this.correctAnswersCount = result.result?.correctAnswers || 0;
+                this.quizResult = result.result;
                 
-                // Сразу отмечаем урок как завершенный
-                if (this.correctAnswersCount === totalQuestions) {
+                this.renderQuiz();
+                
+                if (this.quizResult.isPassed) {
+                    this.uiManager.showToast('Тест пройден! Урок завершен.', 'success');
                     await this.markLessonAsCompleted(lessonId);
+                } else {
+                    this.uiManager.showToast('Тест не пройден. Попробуйте еще раз!', 'warning');
+                    this.updateLessonStatusInUI(lessonId, false);
                 }
-                
-                this.renderQuiz(); // Перерисовываем с результатами
-                this.uiManager.showToast('Ответы проверены!', 'success');
-                
-                // Автоматически обновляем прогресс
-                this.updateProgressInUI();
             } else {
                 throw new Error(result.error || 'Не удалось проверить ответы');
             }
@@ -190,64 +239,48 @@ export class QuizManager {
         }
     }
 
-    highlightCorrectAnswers() {
-        document.querySelectorAll('.quiz-question').forEach(questionEl => {
-            const questionId = questionEl.dataset.questionId;
-            const question = this.currentQuizQuestions.find(q => q.id === questionId);
-            if (!question) return;
-
-            const options = questionEl.querySelectorAll('.quiz-option');
-            options.forEach((optionEl, index) => {
-                const optionNum = index + 1;
-                
-                // Отключаем все радиокнопки
-                const radio = optionEl.querySelector('input[type="radio"]');
-                if (radio) radio.disabled = true;
-                
-                // Подсвечиваем правильный ответ зеленым
-                if (optionNum === question.correctOption) {
-                    optionEl.classList.add('correct-answer');
-                }
-                
-                // Подсвечиваем неправильный ответ красным
-                const userAnswer = this.userAnswers[questionId];
-                if (userAnswer === optionNum && userAnswer !== question.correctOption) {
-                    optionEl.classList.add('wrong-answer');
-                }
-            });
-        });
-    }
-
     async markLessonAsCompleted(lessonId) {
         try {
             const result = await this.api.completeLesson(lessonId);
             if (result.success) {
                 console.log('Lesson marked as completed:', lessonId);
-                this.uiManager.showToast('Урок завершен!', 'success');
+                this.updateLessonStatusInUI(lessonId, true);
                 
-                // Обновляем UI сразу
-                this.updateProgressInUI();
+                if (this.courseManager) {
+                    if (this.courseManager.currentCourse) {
+                        await this.courseManager.updateCourseProgressInUI(this.courseManager.currentCourse.id);
+                    }
+                    await this.courseManager.checkAndUpdateModuleCompletion();
+                    await this.courseManager.loadModuleLessons(this.courseManager.currentModule?.id);
+                }
             }
         } catch (error) {
             console.error('Failed to mark lesson as completed:', error);
         }
     }
 
-    updateProgressInUI() {
-        // Обновляем кнопку в сайдбаре
-        const currentLessonId = this.currentQuizQuestions[0]?.lessonId;
-        if (currentLessonId) {
-            const lessonElement = document.querySelector(`[data-lesson-id="${currentLessonId}"]`);
-            if (lessonElement) {
+    updateLessonStatusInUI(lessonId, isCompleted) {
+        const lessonElement = document.querySelector(`[data-lesson-id="${lessonId}"]`);
+        if (lessonElement) {
+            if (isCompleted) {
                 lessonElement.classList.add('completed');
-                const infoDiv = lessonElement.querySelector('.lesson-info');
-                if (infoDiv) {
-                    const titleDiv = infoDiv.querySelector('.lesson-title');
-                    if (titleDiv && !titleDiv.textContent.includes('✓')) {
-                        titleDiv.textContent = '✓ ' + titleDiv.textContent;
-                    }
+                lessonElement.classList.remove('failed');
+                const titleDiv = lessonElement.querySelector('.lesson-title');
+                if (titleDiv && !titleDiv.textContent.includes('✓')) {
+                    titleDiv.textContent = '✓ ' + titleDiv.textContent.replace('✓ ', '');
+                }
+            } else {
+                lessonElement.classList.remove('completed');
+                lessonElement.classList.add('failed');
+                const titleDiv = lessonElement.querySelector('.lesson-title');
+                if (titleDiv) {
+                    titleDiv.textContent = titleDiv.textContent.replace('✓ ', '');
                 }
             }
+        }
+
+        if (this.courseManager) {
+            this.courseManager.updateSidebarLessonStatus(lessonId, isCompleted);
         }
     }
 
@@ -255,14 +288,19 @@ export class QuizManager {
         this.userAnswers = {};
         this.isQuizSubmitted = false;
         this.correctAnswersCount = 0;
+        this.quizResult = null;
         this.renderQuiz();
-        this.uiManager.showToast('Тест начат заново', 'info');
+        this.uiManager.showToast('🔄 Тест начат заново', 'info');
+        
+        if (this.lessonId) {
+            this.updateLessonStatusInUI(this.lessonId, false);
+        }
     }
 
     continueAfterQuiz() {
         this.uiManager.hideQuizSection();
-        if (this.correctAnswersCount === this.currentQuizQuestions.length) {
-            this.uiManager.showToast('Тест успешно пройден!', 'success');
+        if (this.quizResult?.isPassed) {
+            this.uiManager.showToast('рок успешно пройден!', 'success');
         }
     }
 
