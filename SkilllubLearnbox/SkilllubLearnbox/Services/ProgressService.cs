@@ -2,20 +2,338 @@
 using SkilllubLearnbox.DTOs;
 using SkilllubLearnbox.Models;
 using Supabase;
-using System.Text;
+using Supabase.Postgrest;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace SkilllubLearnbox.Services;
 
 public class ProgressService
 {
     private readonly ILogger<ProgressService> _logger;
-    private readonly Supabase.Client _client;
+    private readonly Supabase.Client _client; // ЭТО ПОЛЕ КЛАССА!
 
     public ProgressService(ILogger<ProgressService> logger, Supabase.Client client)
     {
         _logger = logger;
-        _client = client;
+        _client = client; // ИНИЦИАЛИЗИРУЕМ ПОЛЕ!
     }
+
+    // ============ ОСНОВНЫЕ МЕТОДЫ ПРОВЕРКИ МОДУЛЕЙ ============
+
+    public async Task<bool> IsModuleCompletedAsync(string userId, string moduleId)
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(userId) || string.IsNullOrEmpty(moduleId))
+                return false;
+
+            await _client.InitializeAsync();
+
+            // 1. Сначала проверяем таблицу user_module_progress
+            var moduleProgressResponse = await _client
+                .From<UserModuleProgress>()
+                .Where(x => x.UserId == userId && x.ModuleId == moduleId)
+                .Get();
+
+            var moduleProgress = moduleProgressResponse?.Models?.FirstOrDefault();
+
+            if (moduleProgress != null && moduleProgress.IsCompleted)
+            {
+                _logger.LogInformation("Модуль {ModuleId} помечен как завершенный в user_module_progress", moduleId);
+                return true;
+            }
+
+            // 2. Если нет записи или is_completed = false, проверяем уроки
+            var isCompletedByLessons = await CheckModuleCompletionByLessonsAsync(userId, moduleId);
+
+            if (isCompletedByLessons && moduleProgress == null)
+            {
+                await CreateModuleCompletionRecord(userId, moduleId);
+            }
+
+            return isCompletedByLessons;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Ошибка при проверке завершения модуля {ModuleId}", moduleId);
+            return false;
+        }
+    }
+
+    private async Task<bool> CheckModuleCompletionByLessonsAsync(string userId, string moduleId)
+    {
+        try
+        {
+            await _client.InitializeAsync();
+
+            // Получаем ВСЕ уроки модуля
+            var lessonsResponse = await _client
+                .From<Lesson>()
+                .Where(l => l.ModuleId == moduleId)
+                .Get();
+
+            var moduleLessons = lessonsResponse?.Models?.ToList() ?? new List<Lesson>();
+
+            if (!moduleLessons.Any())
+            {
+                _logger.LogWarning("Модуль {ModuleId} не содержит уроков", moduleId);
+                return false;
+            }
+
+            // Получаем ВСЕ завершенные уроки пользователя
+            var userProgressResponse = await _client
+                .From<UserProgress>()
+                .Where(up => up.UserId == userId && up.Completed == true)
+                .Get();
+
+            var completedLessonIds = userProgressResponse?.Models?
+                .Where(up => !string.IsNullOrEmpty(up.LessonId))
+                .Select(up => up.LessonId)
+                .ToHashSet() ?? new HashSet<string>();
+
+            // Получаем ID всех уроков модуля
+            var moduleLessonIds = moduleLessons.Select(l => l.Id).ToHashSet();
+
+            // Находим завершенные уроки, которые принадлежат этому модулю
+            var completedInThisModule = completedLessonIds.Intersect(moduleLessonIds).Count();
+
+            _logger.LogInformation("Модуль {ModuleId}: завершено {Completed}/{Total} уроков",
+                moduleId, completedInThisModule, moduleLessons.Count);
+
+            return completedInThisModule >= moduleLessons.Count;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Ошибка при проверке завершения модуля по урокам");
+            return false;
+        }
+    }
+
+    private async Task CreateModuleCompletionRecord(string userId, string moduleId)
+    {
+        try
+        {
+            await _client.InitializeAsync();
+
+            // Получаем информацию о модуле
+            var moduleResponse = await _client
+                .From<Module>()
+                .Where(m => m.Id == moduleId)
+                .Get();
+
+            var module = moduleResponse?.Models?.FirstOrDefault();
+            if (module == null) return;
+
+            // Проверяем, существует ли уже запись
+            var existingResponse = await _client
+                .From<UserModuleProgress>()
+                .Where(x => x.UserId == userId && x.ModuleId == moduleId)
+                .Get();
+
+            var existing = existingResponse?.Models?.FirstOrDefault();
+
+            if (existing == null)
+            {
+                // Создаем новую запись
+                var progress = new UserModuleProgress
+                {
+                    Id = Guid.NewGuid().ToString(),
+                    UserId = userId,
+                    ModuleId = moduleId,
+                    CourseId = module.CourseId,
+                    IsCompleted = true,
+                    CompletedAt = DateTime.UtcNow
+                };
+
+                await _client.From<UserModuleProgress>().Insert(progress);
+                _logger.LogInformation("✅ Создана запись о завершении модуля {ModuleId}", moduleId);
+            }
+            else if (!existing.IsCompleted)
+            {
+                // Обновляем существующую запись
+                existing.IsCompleted = true;
+                existing.CompletedAt = DateTime.UtcNow;
+                await _client.From<UserModuleProgress>().Update(existing);
+                _logger.LogInformation("✅ Обновлена запись о завершении модуля {ModuleId}", moduleId);
+            }
+
+            // После завершения модуля - разблокируем следующий
+            await UnlockNextModuleAsync(userId, module);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Ошибка при создании записи о завершении модуля");
+        }
+    }
+
+    public async Task<bool> IsModuleAccessibleAsync(string userId, string moduleId)
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(userId) || string.IsNullOrEmpty(moduleId))
+                return false;
+
+            await _client.InitializeAsync();
+
+            var moduleResponse = await _client
+                .From<Module>()
+                .Where(m => m.Id == moduleId)
+                .Get();
+
+            var module = moduleResponse?.Models?.FirstOrDefault();
+            if (module == null) return false;
+
+            var isEnrolled = await IsUserEnrolledInCourseAsync(userId, module.CourseId);
+            if (!isEnrolled) return false;
+
+            // Первый модуль всегда доступен
+            if (module.ModuleOrder == 1) return true;
+
+            var courseModulesResponse = await _client
+                .From<Module>()
+                .Where(m => m.CourseId == module.CourseId)
+                .Order(m => m.ModuleOrder, Constants.Ordering.Ascending)
+                .Get();
+
+            var courseModules = courseModulesResponse?.Models?.ToList() ?? new List<Module>();
+
+            var currentIndex = courseModules.FindIndex(m => m.Id == moduleId);
+            if (currentIndex <= 0) return true;
+
+            var previousModule = courseModules[currentIndex - 1];
+            var isPreviousCompleted = await IsModuleCompletedAsync(userId, previousModule.Id);
+
+            _logger.LogInformation("Доступ к модулю {ModuleId}: предыдущий модуль завершен = {IsCompleted}",
+                moduleId, isPreviousCompleted);
+
+            return isPreviousCompleted;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Ошибка при проверке доступности модуля");
+            return false;
+        }
+    }
+
+    // ============ МЕТОДЫ ДЛЯ РАБОТЫ С УРОКАМИ ============
+
+    public async Task CompleteLessonAsync(string userId, string lessonId)
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(userId) || string.IsNullOrEmpty(lessonId))
+                return;
+
+            await _client.InitializeAsync();
+
+            var lessonResponse = await _client
+                .From<Lesson>()
+                .Where(l => l.Id == lessonId)
+                .Get();
+
+            var lesson = lessonResponse?.Models?.FirstOrDefault();
+            if (lesson == null)
+            {
+                _logger.LogWarning("Урок {LessonId} не найден", lessonId);
+                return;
+            }
+
+            var moduleResponse = await _client
+                .From<Module>()
+                .Where(m => m.Id == lesson.ModuleId)
+                .Get();
+
+            var module = moduleResponse?.Models?.FirstOrDefault();
+            if (module == null)
+            {
+                _logger.LogWarning("Модуль для урока {LessonId} не найден", lessonId);
+                return;
+            }
+
+            // 1. Отмечаем урок как завершенный
+            await MarkLessonAsCompletedAsync(userId, lessonId);
+
+            // 2. Обновляем прогресс курса
+            await UpdateCourseProgressAsync(userId, module.CourseId);
+
+            // 3. Проверяем, завершен ли модуль
+            await CheckAndCompleteModuleAsync(userId, module.Id);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Ошибка при завершении урока");
+        }
+    }
+
+    private async Task MarkLessonAsCompletedAsync(string userId, string lessonId)
+    {
+        try
+        {
+            await _client.InitializeAsync();
+
+            var progressResponse = await _client
+                .From<UserProgress>()
+                .Where(up => up.UserId == userId && up.LessonId == lessonId)
+                .Get();
+
+            var userProgress = progressResponse?.Models?.FirstOrDefault();
+
+            if (userProgress == null)
+            {
+                userProgress = new UserProgress
+                {
+                    Id = Guid.NewGuid().ToString(),
+                    UserId = userId,
+                    LessonId = lessonId,
+                    Completed = true,
+                    LastAttempt = DateTime.UtcNow,
+                    AttemptsCount = 1,
+                    TimeSpentMs = 0,
+                    BestScore = 100
+                };
+                await _client.From<UserProgress>().Insert(userProgress);
+                _logger.LogInformation("✅ Урок {LessonId} отмечен как завершенный", lessonId);
+            }
+            else if (!userProgress.Completed)
+            {
+                userProgress.Completed = true;
+                userProgress.LastAttempt = DateTime.UtcNow;
+                userProgress.AttemptsCount++;
+                await _client.From<UserProgress>().Update(userProgress);
+                _logger.LogInformation("✅ Урок {LessonId} отмечен как завершенный", lessonId);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Ошибка при отметке урока как завершенного");
+        }
+    }
+
+    public async Task CheckAndCompleteModuleAsync(string userId, string moduleId)
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(userId) || string.IsNullOrEmpty(moduleId))
+                return;
+
+            var isCompleted = await CheckModuleCompletionByLessonsAsync(userId, moduleId);
+
+            if (isCompleted)
+            {
+                _logger.LogInformation("✅ Модуль {ModuleId} может быть завершен", moduleId);
+                await CreateModuleCompletionRecord(userId, moduleId);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Ошибка при проверке и завершении модуля");
+        }
+    }
+
+    // ============ МЕТОДЫ ДЛЯ РАБОТЫ С КУРСАМИ ============
 
     public async Task<bool> IsUserEnrolledInCourseAsync(string userId, string courseId)
     {
@@ -26,7 +344,8 @@ public class ProgressService
 
             await _client.InitializeAsync();
 
-            var response = await _client.From<UserCourse>()
+            var response = await _client
+                .From<UserCourse>()
                 .Where(x => x.UserId == userId && x.CourseId == courseId)
                 .Get();
 
@@ -47,10 +366,7 @@ public class ProgressService
                 return false;
 
             if (await IsUserEnrolledInCourseAsync(userId, courseId))
-            {
-                _logger.LogInformation("Пользователь {UserId} уже записан на курс {CourseId}", userId, courseId);
                 return true;
-            }
 
             var userCourse = new UserCourse
             {
@@ -65,117 +381,61 @@ public class ProgressService
             await _client.InitializeAsync();
             await _client.From<UserCourse>().Insert(userCourse);
 
-            _logger.LogInformation("Пользователь {UserId} успешно записан на курс {CourseId}", userId, courseId);
+            await InitializeModuleProgressAsync(userId, courseId);
+
             return true;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Ошибка при записи пользователя на курс");
+            _logger.LogError(ex, "Ошибка при записи на курс");
             return false;
         }
     }
 
-    public async Task<int> GetUserCourseProgressAsync(string userId, string courseId)
+    public async Task InitializeModuleProgressAsync(string userId, string courseId)
     {
         try
         {
             if (string.IsNullOrEmpty(userId) || string.IsNullOrEmpty(courseId))
-                return 0;
+                return;
 
             await _client.InitializeAsync();
 
-            var response = await _client.From<UserCourse>()
-                .Where(x => x.UserId == userId && x.CourseId == courseId)
+            var modulesResponse = await _client
+                .From<Module>()
+                .Where(m => m.CourseId == courseId)
+                .Order(m => m.ModuleOrder, Constants.Ordering.Ascending)
                 .Get();
 
-            var userCourse = response?.Models?.FirstOrDefault();
-            return userCourse?.Progress ?? 0;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Ошибка при получении прогресса курса");
-            return 0;
-        }
-    }
+            var modules = modulesResponse?.Models?.ToList() ?? new List<Module>();
 
-    public async Task UpdateUserProgressAsync(string userId, string lessonId)
-    {
-        try
-        {
-            if (string.IsNullOrEmpty(userId) || string.IsNullOrEmpty(lessonId))
-                return;
-
-            await _client.InitializeAsync();
-
-            var lessonsResponse = await _client.From<Lesson>().Get();
-            var lesson = lessonsResponse?.Models?.FirstOrDefault(l => l.Id == lessonId);
-
-            if (lesson == null)
+            foreach (var module in modules)
             {
-                _logger.LogWarning("Урок {LessonId} не найден", lessonId);
-                return;
-            }
+                var existingResponse = await _client
+                    .From<UserModuleProgress>()
+                    .Where(x => x.UserId == userId && x.ModuleId == module.Id)
+                    .Get();
 
-            var modulesResponse = await _client.From<Module>().Get();
-            var module = modulesResponse?.Models?.FirstOrDefault(m => m.Id == lesson.ModuleId);
-
-            if (module == null)
-            {
-                _logger.LogWarning("Модуль для урока {LessonId} не найден", lessonId);
-                return;
-            }
-
-            await UpdateCourseProgressAsync(userId, module.CourseId);
-
-            await UpdateLessonProgressAsync(userId, lessonId);
-
-            await CompleteModuleIfAllLessonsDoneAsync(userId, lessonId);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Ошибка при обновлении прогресса");
-        }
-    }
-
-    private async Task UpdateLessonProgressAsync(string userId, string lessonId)
-    {
-        try
-        {
-            await _client.InitializeAsync();
-
-            var response = await _client.From<UserProgress>()
-                .Filter("lesson_id", Supabase.Postgrest.Constants.Operator.Equals, lessonId)
-                .Get();
-
-            var userProgress = response?.Models?
-                .FirstOrDefault(up => up.UserId != null && up.UserId == userId);
-
-            if (userProgress == null)
-            {
-                userProgress = new UserProgress
+                if (existingResponse?.Models?.FirstOrDefault() == null)
                 {
-                    Id = Guid.NewGuid().ToString(),
-                    UserId = userId,
-                    LessonId = lessonId,
-                    Completed = true,
-                    LastAttempt = DateTime.UtcNow,
-                    AttemptsCount = 1
-                };
-                await _client.From<UserProgress>().Insert(userProgress);
-            }
-            else
-            {
-                userProgress.Completed = true;
-                userProgress.LastAttempt = DateTime.UtcNow;
-                userProgress.AttemptsCount++;
-                await _client.From<UserProgress>().Update(userProgress);
-            }
+                    var progress = new UserModuleProgress
+                    {
+                        Id = Guid.NewGuid().ToString(),
+                        UserId = userId,
+                        ModuleId = module.Id,
+                        CourseId = module.CourseId,
+                        IsCompleted = false,
+                        CompletedAt = null
+                    };
 
-            _logger.LogInformation("Прогресс урока обновлен для пользователя {UserId}", userId);
+                    await _client.From<UserModuleProgress>().Insert(progress);
+                    _logger.LogInformation("Инициализирован прогресс модуля {ModuleId}", module.Id);
+                }
+            }
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Ошибка при обновлении прогресса урока");
+            _logger.LogError(ex, "Ошибка при инициализации прогресса модулей");
         }
     }
 
@@ -188,65 +448,159 @@ public class ProgressService
 
             await _client.InitializeAsync();
 
-            var userProgressResponse = await _client
-                .From<UserProgress>()
-                .Where(up => up.UserId == userId && up.Completed == true)
-                .Get();
-
-            var completedLessons = userProgressResponse?.Models?
-                .Where(up => !string.IsNullOrEmpty(up.LessonId))
-                .Select(up => up.LessonId)
-                .ToHashSet() ?? new HashSet<string>();
-
             var modulesResponse = await _client
                 .From<Module>()
                 .Where(m => m.CourseId == courseId)
                 .Get();
 
-            if (modulesResponse?.Models == null || !modulesResponse.Models.Any())
-                return;
+            var courseModules = modulesResponse?.Models?.ToList() ?? new List<Module>();
+            if (!courseModules.Any()) return;
 
-            var courseModuleIds = modulesResponse.Models
-                .Select(m => m.Id)
-                .ToList();
+            var moduleIds = courseModules.Select(m => m.Id).ToList();
 
             var lessonsResponse = await _client
                 .From<Lesson>()
-                .Where(l => courseModuleIds.Contains(l.ModuleId))
+                .Where(l => moduleIds.Contains(l.ModuleId))
                 .Get();
 
-            if (lessonsResponse?.Models == null)
-                return;
+            var courseLessons = lessonsResponse?.Models?.ToList() ?? new List<Lesson>();
+            if (!courseLessons.Any()) return;
 
-            var courseLessons = lessonsResponse.Models.ToList();
+            var userProgressResponse = await _client
+                .From<UserProgress>()
+                .Where(up => up.UserId == userId && up.Completed == true)
+                .Get();
 
-            if (!courseLessons.Any())
-                return;
+            var completedLessonIds = userProgressResponse?.Models?
+                .Where(up => !string.IsNullOrEmpty(up.LessonId))
+                .Select(up => up.LessonId)
+                .ToHashSet() ?? new HashSet<string>();
 
-            var completedCourseLessons = courseLessons
-                .Count(l => !string.IsNullOrEmpty(l.Id) && completedLessons.Contains(l.Id));
+            var courseLessonIds = courseLessons.Select(l => l.Id).ToHashSet();
+            var completedInThisCourse = completedLessonIds.Intersect(courseLessonIds).Count();
 
             var progress = courseLessons.Count > 0
-                ? (int)Math.Round((double)completedCourseLessons / courseLessons.Count * 100)
+                ? (int)Math.Round((double)completedInThisCourse / courseLessons.Count * 100)
                 : 0;
 
             var userCourseResponse = await _client
                 .From<UserCourse>()
                 .Where(x => x.UserId == userId && x.CourseId == courseId)
-                .Single();
+                .Get();
 
-            if (userCourseResponse == null)
-                return;
+            var userCourse = userCourseResponse?.Models?.FirstOrDefault();
 
-            userCourseResponse.Progress = progress;
-            userCourseResponse.Completed = progress >= 100;
-            userCourseResponse.LastAccessed = DateTime.UtcNow;
+            if (userCourse != null)
+            {
+                userCourse.Progress = progress;
+                userCourse.Completed = progress >= 100;
+                userCourse.LastAccessed = DateTime.UtcNow;
 
-            await _client.From<UserCourse>().Update(userCourseResponse);
+                await _client.From<UserCourse>().Update(userCourse);
+                _logger.LogInformation("Прогресс курса {CourseId}: {Progress}%", courseId, progress);
+            }
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Ошибка при обновлении прогресса курса");
+        }
+    }
+
+    private async Task UnlockNextModuleAsync(string userId, Module currentModule)
+    {
+        try
+        {
+            if (currentModule?.CourseId == null) return;
+
+            var courseModulesResponse = await _client
+                .From<Module>()
+                .Where(m => m.CourseId == currentModule.CourseId)
+                .Order(m => m.ModuleOrder, Constants.Ordering.Ascending)
+                .Get();
+
+            var courseModules = courseModulesResponse?.Models?.ToList() ?? new List<Module>();
+
+            var currentIndex = courseModules.FindIndex(m => m.Id == currentModule.Id);
+
+            if (currentIndex >= 0 && currentIndex < courseModules.Count - 1)
+            {
+                var nextModule = courseModules[currentIndex + 1];
+
+                var nextModuleProgressResponse = await _client
+                    .From<UserModuleProgress>()
+                    .Where(x => x.UserId == userId && x.ModuleId == nextModule.Id)
+                    .Get();
+
+                var nextModuleProgress = nextModuleProgressResponse?.Models?.FirstOrDefault();
+
+                if (nextModuleProgress == null)
+                {
+                    var progress = new UserModuleProgress
+                    {
+                        Id = Guid.NewGuid().ToString(),
+                        UserId = userId,
+                        ModuleId = nextModule.Id,
+                        CourseId = nextModule.CourseId,
+                        IsCompleted = false,
+                        CompletedAt = null
+                    };
+
+                    await _client.From<UserModuleProgress>().Insert(progress);
+                    _logger.LogInformation("🔓 Модуль {ModuleId} разблокирован", nextModule.Id);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Ошибка при разблокировке следующего модуля");
+        }
+    }
+
+    // ============ МЕТОДЫ ДЛЯ ПОЛУЧЕНИЯ ДАННЫХ ============
+
+    public async Task<int> GetUserCourseProgressAsync(string userId, string courseId)
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(userId) || string.IsNullOrEmpty(courseId))
+                return 0;
+
+            await _client.InitializeAsync();
+
+            var response = await _client
+                .From<UserCourse>()
+                .Where(x => x.UserId == userId && x.CourseId == courseId)
+                .Get();
+
+            return response?.Models?.FirstOrDefault()?.Progress ?? 0;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Ошибка при получении прогресса курса");
+            return 0;
+        }
+    }
+
+    public async Task<List<UserCourse>> GetUserCoursesAsync(string userId)
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(userId))
+                return new List<UserCourse>();
+
+            await _client.InitializeAsync();
+
+            var response = await _client
+                .From<UserCourse>()
+                .Where(x => x.UserId == userId)
+                .Get();
+
+            return response?.Models?.ToList() ?? new List<UserCourse>();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Ошибка при получении курсов пользователя");
+            return new List<UserCourse>();
         }
     }
 
@@ -259,16 +613,12 @@ public class ProgressService
 
             await _client.InitializeAsync();
 
-            var response = await _client.From<UserProgress>()
-                .Filter("lesson_id", Supabase.Postgrest.Constants.Operator.Equals, lessonId)
+            var response = await _client
+                .From<UserProgress>()
+                .Where(up => up.UserId == userId && up.LessonId == lessonId && up.Completed == true)
                 .Get();
 
-            if (response?.Models == null)
-                return false;
-
-            return response.Models
-                .Where(up => up.UserId != null && up.UserId == userId && up.Completed)
-                .Any();
+            return response?.Models?.Any() ?? false;
         }
         catch (Exception ex)
         {
@@ -286,14 +636,13 @@ public class ProgressService
 
             await _client.InitializeAsync();
 
-            var response = await _client.From<UserProgress>()
-                .Filter("lesson_id", Supabase.Postgrest.Constants.Operator.Equals, lessonId)
+            var response = await _client
+                .From<UserProgress>()
+                .Where(up => up.UserId == userId && up.LessonId == lessonId)
                 .Get();
 
-            var existingProgress = response?.Models?
-                .FirstOrDefault(up => up.UserId != null && up.UserId == userId);
-
-            if (existingProgress != null) return;
+            if (response?.Models?.FirstOrDefault() != null)
+                return;
 
             var newProgress = new UserProgress
             {
@@ -313,188 +662,15 @@ public class ProgressService
         }
     }
 
-    public async Task<List<UserCourse>> GetUserCoursesAsync(string userId)
+    // ============ МЕТОДЫ ДЛЯ СОВМЕСТИМОСТИ ============
+
+    // Этот метод оставляем для обратной совместимости
+    public async Task UpdateUserProgressAsync(string userId, string lessonId)
     {
-        try
-        {
-            if (string.IsNullOrEmpty(userId))
-                return new List<UserCourse>();
-
-            await _client.InitializeAsync();
-
-            var response = await _client.From<UserCourse>()
-                .Where(x => x.UserId == userId)
-                .Get();
-
-            return response?.Models?.ToList() ?? new List<UserCourse>();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Ошибка при получении курсов пользователя");
-            return new List<UserCourse>();
-        }
+        await CompleteLessonAsync(userId, lessonId);
     }
 
-    public async Task<bool> IsModuleAccessibleAsync(string userId, string moduleId)
-    {
-        try
-        {
-            if (string.IsNullOrEmpty(userId) || string.IsNullOrEmpty(moduleId))
-                return false;
-
-            await _client.InitializeAsync();
-
-            var modulesResponse = await _client.From<Module>().Get();
-            var module = modulesResponse?.Models?.FirstOrDefault(m => m.Id == moduleId);
-
-            if (module == null) return false;
-
-            var isEnrolled = await IsUserEnrolledInCourseAsync(userId, module.CourseId);
-            if (!isEnrolled) return false;
-
-            if (module.ModuleOrder == 1) return true;
-
-            var courseModulesResponse = await _client.From<Module>()
-                .Where(m => m.CourseId == module.CourseId)
-                .Order(m => m.ModuleOrder, Supabase.Postgrest.Constants.Ordering.Ascending)
-                .Get();
-
-            var courseModules = courseModulesResponse?.Models?.ToList() ?? new List<Module>();
-
-            var currentModuleIndex = courseModules.FindIndex(m => m.Id == moduleId);
-            if (currentModuleIndex <= 0) return true;
-
-            var previousModule = courseModules[currentModuleIndex - 1];
-            return await IsModuleCompletedAsync(userId, previousModule.Id);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Ошибка при проверке доступности модуля");
-            return false;
-        }
-    }
-
-    public async Task<bool> IsModuleCompletedAsync(string userId, string moduleId)
-    {
-        try
-        {
-            if (string.IsNullOrEmpty(userId) || string.IsNullOrEmpty(moduleId))
-                return false;
-
-            await _client.InitializeAsync();
-
-            var response = await _client.From<UserModuleProgress>()
-                .Where(x => x.UserId == userId && x.ModuleId == moduleId)
-                .Single();
-
-            if (response != null)
-                return response.IsCompleted;
-
-            return await CheckModuleCompletionByLessonsAsync(userId, moduleId);
-        }
-        catch
-        {
-
-            return await CheckModuleCompletionByLessonsAsync(userId, moduleId);
-        }
-    }
-
-    private async Task<bool> CheckModuleCompletionByLessonsAsync(string userId, string moduleId)
-    {
-        try
-        {
-            var lessonsResponse = await _client.From<Lesson>()
-                .Where(l => l.ModuleId == moduleId)
-                .Get();
-
-            var moduleLessons = lessonsResponse?.Models?.ToList() ?? new List<Lesson>();
-            if (!moduleLessons.Any()) return false;
-
-            var completedLessons = await GetCompletedLessonsInModuleAsync(userId, moduleId);
-
-            bool isCompleted = completedLessons.Count >= moduleLessons.Count;
-
-            if (isCompleted)
-            {
-                var moduleResponse = await _client.From<Module>().Get();
-                var module = moduleResponse?.Models?.FirstOrDefault(m => m.Id == moduleId);
-
-                if (module != null)
-                {
-                    var progress = new UserModuleProgress
-                    {
-                        Id = Guid.NewGuid().ToString(),
-                        UserId = userId,
-                        ModuleId = moduleId,
-                        CourseId = module.CourseId,
-                        IsCompleted = true,
-                        CompletedAt = DateTime.UtcNow
-                    };
-
-                    await _client.From<UserModuleProgress>().Insert(progress);
-                    _logger.LogInformation("Создана запись о завершении модуля {ModuleId}", moduleId);
-                }
-            }
-
-            return isCompleted;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Ошибка при проверке завершения модуля по урокам");
-            return false;
-        }
-    }
-
-    public async Task CompleteModuleAsync(string userId, string moduleId)
-    {
-        try
-        {
-            if (string.IsNullOrEmpty(userId) || string.IsNullOrEmpty(moduleId))
-                return;
-
-            await _client.InitializeAsync();
-            var modulesResponse = await _client.From<Module>().Get();
-            var module = modulesResponse?.Models?.FirstOrDefault(m => m.Id == moduleId);
-
-            if (module == null) return;
-
-            var progressResponse = await _client.From<UserModuleProgress>()
-                .Where(x => x.UserId == userId && x.ModuleId == moduleId)
-                .Single();
-
-            UserModuleProgress progress;
-
-            if (progressResponse == null)
-            {
-                progress = new UserModuleProgress
-                {
-                    Id = Guid.NewGuid().ToString(),
-                    UserId = userId,
-                    ModuleId = moduleId,
-                    CourseId = module.CourseId,
-                    IsCompleted = true,
-                    CompletedAt = DateTime.UtcNow
-                };
-                await _client.From<UserModuleProgress>().Insert(progress);
-            }
-            else
-            {
-                progress = progressResponse;
-                progress.IsCompleted = true;
-                progress.CompletedAt = DateTime.UtcNow;
-                await _client.From<UserModuleProgress>().Update(progress);
-            }
-
-            _logger.LogInformation("Модуль {ModuleId} завершен пользователем {UserId}", moduleId, userId);
-
-            await UnlockNextModuleAsync(userId, module);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Ошибка при завершении модуля");
-        }
-    }
-
+    // Этот метод оставляем для обратной совместимости
     public async Task CompleteModuleIfAllLessonsDoneAsync(string userId, string lessonId)
     {
         try
@@ -504,26 +680,15 @@ public class ProgressService
 
             await _client.InitializeAsync();
 
-            var lessonsResponse = await _client.From<Lesson>().Get();
-            var lesson = lessonsResponse?.Models?.FirstOrDefault(l => l.Id == lessonId);
+            var lessonResponse = await _client
+                .From<Lesson>()
+                .Where(l => l.Id == lessonId)
+                .Get();
 
+            var lesson = lessonResponse?.Models?.FirstOrDefault();
             if (lesson == null) return;
 
-            var modulesResponse = await _client.From<Module>().Get();
-            var module = modulesResponse?.Models?.FirstOrDefault(m => m.Id == lesson.ModuleId);
-
-            if (module == null) return;
-
-            var completedLessons = await GetCompletedLessonsInModuleAsync(userId, module.Id);
-            var totalLessons = await GetTotalLessonsInModuleAsync(module.Id);
-
-            _logger.LogInformation("Модуль {ModuleId}: завершено {Completed}/{Total} уроков",
-                module.Id, completedLessons.Count, totalLessons);
-
-            if (totalLessons > 0 && completedLessons.Count >= totalLessons)
-            {
-                await CompleteModuleAsync(userId, module.Id);
-            }
+            await CheckAndCompleteModuleAsync(userId, lesson.ModuleId);
         }
         catch (Exception ex)
         {
@@ -531,148 +696,53 @@ public class ProgressService
         }
     }
 
-    private async Task UnlockNextModuleAsync(string userId, Module currentModule)
+    // ============ ОТЛАДОЧНЫЕ МЕТОДЫ ============
+
+    public async Task ResetModuleProgressAsync(string userId, string moduleId)
     {
         try
         {
-            _logger.LogInformation("Поиск следующего модуля после {CurrentModuleId}", currentModule.Id);
+            await _client.InitializeAsync();
 
-            var courseModulesResponse = await _client.From<Module>()
-                .Where(m => m.CourseId == currentModule.CourseId)
-                .Order(m => m.ModuleOrder, Supabase.Postgrest.Constants.Ordering.Ascending)
+            var moduleProgressResponse = await _client
+                .From<UserModuleProgress>()
+                .Where(x => x.UserId == userId && x.ModuleId == moduleId)
                 .Get();
 
-            var courseModules = courseModulesResponse?.Models?.ToList() ?? new List<Module>();
-            var currentIndex = courseModules.FindIndex(m => m.Id == currentModule.Id);
-
-            if (currentIndex >= 0 && currentIndex < courseModules.Count - 1)
+            var moduleProgress = moduleProgressResponse?.Models?.FirstOrDefault();
+            if (moduleProgress != null)
             {
-                var nextModule = courseModules[currentIndex + 1];
-                _logger.LogInformation("Найден следующий модуль: {NextModuleId}", nextModule.Id);
+                await _client.From<UserModuleProgress>().Delete(moduleProgress);
+                _logger.LogWarning("Сброшен прогресс модуля {ModuleId}", moduleId);
+            }
 
-                var nextModuleProgressResponse = await _client.From<UserModuleProgress>()
-                    .Where(x => x.UserId == userId && x.ModuleId == nextModule.Id)
-                    .Single();
+            var lessonsResponse = await _client
+                .From<Lesson>()
+                .Where(l => l.ModuleId == moduleId)
+                .Get();
 
-                if (nextModuleProgressResponse == null)
+            var lessonIds = lessonsResponse?.Models?.Select(l => l.Id).ToList() ?? new List<string>();
+
+            foreach (var lessonId in lessonIds)
+            {
+                var userProgressResponse = await _client
+                    .From<UserProgress>()
+                    .Where(up => up.UserId == userId && up.LessonId == lessonId)
+                    .Get();
+
+                var userProgress = userProgressResponse?.Models?.FirstOrDefault();
+                if (userProgress != null)
                 {
-                    var nextProgress = new UserModuleProgress
-                    {
-                        Id = Guid.NewGuid().ToString(),
-                        UserId = userId,
-                        ModuleId = nextModule.Id,
-                        CourseId = nextModule.CourseId,
-                        IsCompleted = false
-                    };
-
-                    await _client.From<UserModuleProgress>().Insert(nextProgress);
-
-                    _logger.LogInformation("✅ Создана запись о следующем модуле {ModuleId} для пользователя {UserId}",
-                        nextModule.Id, userId);
+                    userProgress.Completed = false;
+                    await _client.From<UserProgress>().Update(userProgress);
                 }
             }
+
+            _logger.LogWarning("Сброшены все уроки модуля {ModuleId}", moduleId);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Ошибка при разблокировке следующего модуля");
-        }
-    }
-
-    private async Task<List<string>> GetCompletedLessonsInModuleAsync(string userId, string moduleId)
-    {
-        try
-        {
-            await _client.InitializeAsync();
-
-            // Получаем все уроки модуля
-            var lessonsResponse = await _client.From<Lesson>().Get();
-            var moduleLessons = lessonsResponse?.Models?
-                .Where(l => l.ModuleId == moduleId)
-                .Select(l => l.Id)
-                .ToList() ?? new List<string>();
-
-            if (!moduleLessons.Any()) return new List<string>();
-
-            // Получаем завершенные уроки пользователя в этом модуле
-            var userProgressResponse = await _client.From<UserProgress>()
-                .Where(up => up.UserId == userId && up.Completed == true)
-                .Get();
-
-            if (userProgressResponse?.Models == null)
-                return new List<string>();
-
-            return userProgressResponse.Models
-                .Where(up => !string.IsNullOrEmpty(up.LessonId) && moduleLessons.Contains(up.LessonId))
-                .Select(up => up.LessonId)
-                .ToList();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Ошибка при получении завершенных уроков модуля");
-            return new List<string>();
-        }
-    }
-
-    private async Task<int> GetTotalLessonsInModuleAsync(string moduleId)
-    {
-        try
-        {
-            await _client.InitializeAsync();
-
-            var lessonsResponse = await _client.From<Lesson>().Get();
-            var moduleLessons = lessonsResponse?.Models?
-                .Where(l => l.ModuleId == moduleId)
-                .ToList() ?? new List<Lesson>();
-
-            return moduleLessons.Count;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Ошибка при получении уроков модуля");
-            return 0;
-        }
-    }
-
-    public async Task InitializeModuleProgress(string userId, string courseId)
-    {
-        try
-        {
-            if (string.IsNullOrEmpty(userId) || string.IsNullOrEmpty(courseId))
-                return;
-
-            await _client.InitializeAsync();
-
-            var modulesResponse = await _client.From<Module>()
-                .Where(m => m.CourseId == courseId)
-                .Order(m => m.ModuleOrder, Supabase.Postgrest.Constants.Ordering.Ascending)
-                .Get();
-
-            var modules = modulesResponse?.Models?.ToList() ?? new List<Module>();
-
-            foreach (var module in modules)
-            {
-                var existingResponse = await _client.From<UserModuleProgress>()
-                    .Where(x => x.UserId == userId && x.ModuleId == module.Id)
-                    .Single();
-
-                if (existingResponse == null)
-                {
-                    var progress = new UserModuleProgress
-                    {
-                        Id = Guid.NewGuid().ToString(),
-                        UserId = userId,
-                        ModuleId = module.Id,
-                        CourseId = module.CourseId,
-                        IsCompleted = false
-                    };
-
-                    await _client.From<UserModuleProgress>().Insert(progress);
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Ошибка при инициализации прогресса модулей");
+            _logger.LogError(ex, "Ошибка при сбросе прогресса модуля");
         }
     }
 }

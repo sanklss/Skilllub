@@ -39,7 +39,7 @@ public class ProgressController : ControllerBase
 
             if (result)
             {
-                await _progressService.InitializeModuleProgress(userId, dto.CourseId);
+                await _progressService.InitializeModuleProgressAsync(userId, dto.CourseId);
 
                 return Ok(new
                 {
@@ -148,8 +148,7 @@ public class ProgressController : ControllerBase
                 return Unauthorized(new { success = false, error = "Пользователь не авторизован" });
             }
 
-            await _progressService.UpdateUserProgressAsync(userId, lessonId);
-            await _progressService.CompleteModuleIfAllLessonsDoneAsync(userId, lessonId);
+            await _progressService.CompleteLessonAsync(userId, lessonId);
 
             return Ok(new
             {
@@ -216,6 +215,28 @@ public class ProgressController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "Ошибка при получении статуса модуля");
+            return Problem("Ошибка сервера");
+        }
+    }
+
+    // ОТЛАДОЧНЫЙ ЭНДПОИНТ - ТОЛЬКО ДЛЯ АДМИНОВ!
+    [HttpPost("debug/reset-module/{moduleId}")]
+    [Authorize(Roles = "admin")]
+    public async Task<IActionResult> ResetModuleProgress(string moduleId)
+    {
+        try
+        {
+            var userId = User.FindFirst("userId")?.Value;
+            if (string.IsNullOrEmpty(userId))
+                return Unauthorized();
+
+            await _progressService.ResetModuleProgressAsync(userId, moduleId);
+
+            return Ok(new { success = true, message = "Прогресс модуля сброшен" });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Ошибка при сбросе модуля");
             return Problem("Ошибка сервера");
         }
     }

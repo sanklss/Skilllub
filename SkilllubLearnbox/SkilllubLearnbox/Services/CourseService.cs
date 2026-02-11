@@ -1,6 +1,5 @@
 ﻿using SkilllubLearnbox.DTOs;
 using SkilllubLearnbox.Models;
-using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Supabase;
 using Supabase.Postgrest;
@@ -11,18 +10,15 @@ public class CourseService
 {
     private readonly ILogger<CourseService> _logger;
     private readonly Supabase.Client _client;
-    private readonly IMemoryCache _cache;
-    private readonly ProgressService _progressService;
+    private readonly ProgressService _progressService; // ЗАВИСИМОСТЬ ОСТАЕТСЯ!
 
     public CourseService(
         ILogger<CourseService> logger,
         Supabase.Client client,
-        IMemoryCache cache,
-        ProgressService progressService)
+        ProgressService progressService) // КОНСТРУКТОР БЕЗ IMemoryCache!
     {
         _logger = logger;
         _client = client;
-        _cache = cache;
         _progressService = progressService;
     }
 
@@ -30,19 +26,11 @@ public class CourseService
     {
         try
         {
-            const string cacheKey = "all_courses";
-
-            if (_cache.TryGetValue(cacheKey, out List<CourseDto> cachedCourses))
-            {
-                _logger.LogInformation("Курсы загружены из кэша");
-                return cachedCourses;
-            }
-
             _logger.LogInformation("Загрузка курсов из базы данных");
 
             var response = await _client
                 .From<Course>()
-                .Where(x => x.IsPublished == true) 
+                .Where(x => x.IsPublished == true)
                 .Get();
 
             var courses = response?.Models?.ToList() ?? new List<Course>();
@@ -55,12 +43,6 @@ public class CourseService
                 DifficultyLevel = c.DifficultyLevel,
                 IsPublished = c.IsPublished
             }).ToList();
-
-            var cacheOptions = new MemoryCacheEntryOptions()
-                .SetAbsoluteExpiration(TimeSpan.FromMinutes(30));
-
-            _cache.Set(cacheKey, courseDtos, cacheOptions);
-            _logger.LogInformation("Курсы сохранены в кэш на 30 минут");
 
             return courseDtos;
         }
@@ -75,14 +57,6 @@ public class CourseService
     {
         try
         {
-            var cacheKey = $"course_{courseId}";
-
-            if (_cache.TryGetValue(cacheKey, out CourseDto cachedCourse))
-            {
-                _logger.LogInformation("Курс {CourseId} загружен из кэша", courseId);
-                return cachedCourse;
-            }
-
             _logger.LogInformation("Загрузка курса {CourseId} из базы данных", courseId);
 
             var response = await _client
@@ -105,10 +79,6 @@ public class CourseService
                 IsPublished = response.IsPublished
             };
 
-            var cacheOptions = new MemoryCacheEntryOptions()
-                .SetAbsoluteExpiration(TimeSpan.FromMinutes(30));
-
-            _cache.Set(cacheKey, courseDto, cacheOptions);
             return courseDto;
         }
         catch (Exception ex)
@@ -128,15 +98,7 @@ public class CourseService
                 return new List<ModuleDto>();
             }
 
-            var cacheKey = $"modules_{courseId}_{userId ?? "guest"}";
-
-            if (_cache.TryGetValue(cacheKey, out List<ModuleDto> cachedModules))
-            {
-                _logger.LogDebug("Модули из кэша для курса {CourseId}", courseId);
-                return cachedModules;
-            }
-
-            _logger.LogInformation("Загрузка модулей курса {CourseId}", courseId);
+            _logger.LogInformation("Загрузка модулей курса {CourseId} из базы данных", courseId);
 
             var response = await _client
                 .From<Module>()
@@ -153,9 +115,9 @@ public class CourseService
             var modules = response.Models.ToList();
             var moduleDtos = new List<ModuleDto>();
 
-            if (string.IsNullOrEmpty(userId))
+            foreach (var module in modules)
             {
-                moduleDtos = modules.Select(module => new ModuleDto
+                var dto = new ModuleDto
                 {
                     Id = module.Id,
                     CourseId = module.CourseId,
@@ -164,32 +126,18 @@ public class CourseService
                     Order = module.ModuleOrder,
                     IsAccessible = true,
                     IsCompleted = false
-                }).ToList();
-            }
-            else
-            {
-                foreach (var module in modules)
+                };
+
+                if (!string.IsNullOrEmpty(userId))
                 {
-                    var isAccessible = await _progressService.IsModuleAccessibleAsync(userId, module.Id);
-                    var isCompleted = await _progressService.IsModuleCompletedAsync(userId, module.Id);
-
-                    moduleDtos.Add(new ModuleDto
-                    {
-                        Id = module.Id,
-                        CourseId = module.CourseId,
-                        Title = module.Title,
-                        Description = module.Description,
-                        Order = module.ModuleOrder,
-                        IsAccessible = isAccessible,
-                        IsCompleted = isCompleted
-                    });
+                    dto.IsAccessible = await _progressService.IsModuleAccessibleAsync(userId, module.Id);
+                    dto.IsCompleted = await _progressService.IsModuleCompletedAsync(userId, module.Id);
                 }
+
+                moduleDtos.Add(dto);
             }
 
-            var cacheOptions = new MemoryCacheEntryOptions()
-                .SetAbsoluteExpiration(TimeSpan.FromMinutes(5));
-
-            _cache.Set(cacheKey, moduleDtos, cacheOptions);
+            _logger.LogInformation("Загружено {Count} модулей для курса {CourseId}", moduleDtos.Count, courseId);
             return moduleDtos;
         }
         catch (Exception ex)
@@ -209,12 +157,7 @@ public class CourseService
                 return new List<LessonDto>();
             }
 
-            var cacheKey = $"lessons_{moduleId}_{userId ?? "guest"}";
-
-            if (_cache.TryGetValue(cacheKey, out List<LessonDto> cachedLessons))
-            {
-                return cachedLessons;
-            }
+            _logger.LogInformation("Загрузка уроков модуля {ModuleId} из базы данных", moduleId);
 
             var lessonsResponse = await _client
                 .From<Lesson>()
@@ -296,10 +239,7 @@ public class CourseService
                 });
             }
 
-            var cacheOptions = new MemoryCacheEntryOptions()
-                .SetAbsoluteExpiration(TimeSpan.FromMinutes(5));
-
-            _cache.Set(cacheKey, lessonDtos, cacheOptions);
+            _logger.LogInformation("Загружено {Count} уроков для модуля {ModuleId}", lessonDtos.Count, moduleId);
             return lessonDtos;
         }
         catch (Exception ex)
@@ -308,7 +248,6 @@ public class CourseService
             return new List<LessonDto>();
         }
     }
-
 
     public async Task<LessonDto?> GetLessonByIdAsync(string lessonId, string userId = null)
     {
@@ -320,12 +259,7 @@ public class CourseService
                 return null;
             }
 
-            var cacheKey = $"lesson_{lessonId}_{userId ?? "guest"}";
-
-            if (_cache.TryGetValue(cacheKey, out LessonDto cachedLesson))
-            {
-                return cachedLesson;
-            }
+            _logger.LogInformation("Загрузка урока {LessonId} из базы данных", lessonId);
 
             var response = await _client
                 .From<Lesson>()
@@ -393,10 +327,6 @@ public class CourseService
             }
             catch { }
 
-            var cacheOptions = new MemoryCacheEntryOptions()
-                .SetAbsoluteExpiration(TimeSpan.FromMinutes(10));
-
-            _cache.Set(cacheKey, lessonDto, cacheOptions);
             return lessonDto;
         }
         catch (Exception ex)
@@ -410,14 +340,6 @@ public class CourseService
     {
         try
         {
-            var cacheKey = $"template_{lessonId}_{languageId}_{userId ?? "guest"}";
-
-            if (_cache.TryGetValue(cacheKey, out CodeTemplateDto cachedTemplate))
-            {
-                _logger.LogInformation("Шаблон кода {LessonId} загружен из кэша", lessonId);
-                return cachedTemplate;
-            }
-
             if (!string.IsNullOrEmpty(userId))
             {
                 var lesson = await GetLessonByIdAsync(lessonId, userId);
@@ -447,11 +369,6 @@ public class CourseService
                 SolutionCode = template.SolutionCode
             };
 
-            var cacheOptions = new MemoryCacheEntryOptions()
-                .SetAbsoluteExpiration(TimeSpan.FromMinutes(60));
-
-            _cache.Set(cacheKey, templateDto, cacheOptions);
-
             return templateDto;
         }
         catch (Exception ex)
@@ -470,17 +387,16 @@ public class CourseService
 
             var tasks = new List<Task>();
 
-            tasks.Add(this.GetCourseByIdAsync(courseId));
+            tasks.Add(GetCourseByIdAsync(courseId));
+            tasks.Add(GetCourseModulesAsync(courseId, userId));
 
-            tasks.Add(this.GetCourseModulesAsync(courseId, userId));
-
-            var modules = await this.GetCourseModulesAsync(courseId, userId);
+            var modules = await GetCourseModulesAsync(courseId, userId);
             var moduleIds = modules.Select(m => m.Id).ToList();
 
             if (moduleIds.Any())
             {
                 var lessonTasks = moduleIds.Select(moduleId =>
-                    this.GetModuleLessonsAsync(moduleId, userId)).ToList();
+                    GetModuleLessonsAsync(moduleId, userId)).ToList();
                 tasks.AddRange(lessonTasks);
             }
 
@@ -501,34 +417,16 @@ public class CourseService
             if (lessonIds == null || !lessonIds.Any())
                 return new Dictionary<string, LessonDto>();
 
-            var result = new Dictionary<string, LessonDto>();
-            var lessonsToLoad = new List<string>();
-
-            foreach (var lessonId in lessonIds)
-            {
-                var cacheKey = $"lesson_{lessonId}_{userId ?? "guest"}";
-                if (_cache.TryGetValue(cacheKey, out LessonDto cachedLesson))
-                {
-                    result[lessonId] = cachedLesson;
-                }
-                else
-                {
-                    lessonsToLoad.Add(lessonId);
-                }
-            }
-
-            if (!lessonsToLoad.Any())
-                return result;
-
-            _logger.LogInformation("Bulk загрузка уроков: {Count} из {Total}",
-                lessonsToLoad.Count, lessonIds.Count);
+            _logger.LogInformation("Bulk загрузка {Count} уроков", lessonIds.Count);
 
             await _client.InitializeAsync();
 
             var response = await _client.From<Lesson>().Get();
             var lessons = response.Models?
-                .Where(l => lessonsToLoad.Contains(l.Id))
+                .Where(l => lessonIds.Contains(l.Id))
                 .ToList() ?? new List<Lesson>();
+
+            var result = new Dictionary<string, LessonDto>();
 
             foreach (var lesson in lessons)
             {
@@ -544,12 +442,6 @@ public class CourseService
                 };
 
                 result[lesson.Id] = lessonDto;
-
-                var cacheKey = $"lesson_{lesson.Id}_{userId ?? "guest"}";
-                var cacheOptions = new MemoryCacheEntryOptions()
-                    .SetAbsoluteExpiration(TimeSpan.FromMinutes(string.IsNullOrEmpty(userId) ? 15 : 3));
-
-                _cache.Set(cacheKey, lessonDto, cacheOptions);
             }
 
             return result;
@@ -561,9 +453,9 @@ public class CourseService
         }
     }
 
+    // Оставляем метод для обратной совместимости, но он просто логирует
     public void ClearCoursesCache()
     {
-        _cache.Remove("all_courses");
-        _logger.LogInformation("Кэш курсов очищен");
+        _logger.LogInformation("Кэш не используется, метод очистки кэша не требуется");
     }
 }
