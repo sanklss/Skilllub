@@ -10,12 +10,12 @@ public class CourseService
 {
     private readonly ILogger<CourseService> _logger;
     private readonly Supabase.Client _client;
-    private readonly ProgressService _progressService; // ЗАВИСИМОСТЬ ОСТАЕТСЯ!
+    private readonly ProgressService _progressService;
 
     public CourseService(
         ILogger<CourseService> logger,
         Supabase.Client client,
-        ProgressService progressService) // КОНСТРУКТОР БЕЗ IMemoryCache!
+        ProgressService progressService) 
     {
         _logger = logger;
         _client = client;
@@ -453,7 +453,6 @@ public class CourseService
         }
     }
 
-    // Оставляем метод для обратной совместимости, но он просто логирует
     public void ClearCoursesCache()
     {
         _logger.LogInformation("Кэш не используется, метод очистки кэша не требуется");

@@ -219,7 +219,6 @@ public class ProgressController : ControllerBase
         }
     }
 
-    // ОТЛАДОЧНЫЙ ЭНДПОИНТ - ТОЛЬКО ДЛЯ АДМИНОВ!
     [HttpPost("debug/reset-module/{moduleId}")]
     [Authorize(Roles = "admin")]
     public async Task<IActionResult> ResetModuleProgress(string moduleId)

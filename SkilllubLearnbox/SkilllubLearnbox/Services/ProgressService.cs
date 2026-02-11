@@ -13,15 +13,12 @@ namespace SkilllubLearnbox.Services;
 public class ProgressService
 {
     private readonly ILogger<ProgressService> _logger;
-    private readonly Supabase.Client _client; // ЭТО ПОЛЕ КЛАССА!
-
+    private readonly Supabase.Client _client; 
     public ProgressService(ILogger<ProgressService> logger, Supabase.Client client)
     {
         _logger = logger;
-        _client = client; // ИНИЦИАЛИЗИРУЕМ ПОЛЕ!
+        _client = client;
     }
-
-    // ============ ОСНОВНЫЕ МЕТОДЫ ПРОВЕРКИ МОДУЛЕЙ ============
 
     public async Task<bool> IsModuleCompletedAsync(string userId, string moduleId)
     {
@@ -32,7 +29,6 @@ public class ProgressService
 
             await _client.InitializeAsync();
 
-            // 1. Сначала проверяем таблицу user_module_progress
             var moduleProgressResponse = await _client
                 .From<UserModuleProgress>()
                 .Where(x => x.UserId == userId && x.ModuleId == moduleId)
@@ -46,7 +42,6 @@ public class ProgressService
                 return true;
             }
 
-            // 2. Если нет записи или is_completed = false, проверяем уроки
             var isCompletedByLessons = await CheckModuleCompletionByLessonsAsync(userId, moduleId);
 
             if (isCompletedByLessons && moduleProgress == null)
@@ -69,7 +64,6 @@ public class ProgressService
         {
             await _client.InitializeAsync();
 
-            // Получаем ВСЕ уроки модуля
             var lessonsResponse = await _client
                 .From<Lesson>()
                 .Where(l => l.ModuleId == moduleId)
@@ -83,7 +77,6 @@ public class ProgressService
                 return false;
             }
 
-            // Получаем ВСЕ завершенные уроки пользователя
             var userProgressResponse = await _client
                 .From<UserProgress>()
                 .Where(up => up.UserId == userId && up.Completed == true)
@@ -94,10 +87,8 @@ public class ProgressService
                 .Select(up => up.LessonId)
                 .ToHashSet() ?? new HashSet<string>();
 
-            // Получаем ID всех уроков модуля
             var moduleLessonIds = moduleLessons.Select(l => l.Id).ToHashSet();
 
-            // Находим завершенные уроки, которые принадлежат этому модулю
             var completedInThisModule = completedLessonIds.Intersect(moduleLessonIds).Count();
 
             _logger.LogInformation("Модуль {ModuleId}: завершено {Completed}/{Total} уроков",
@@ -118,7 +109,6 @@ public class ProgressService
         {
             await _client.InitializeAsync();
 
-            // Получаем информацию о модуле
             var moduleResponse = await _client
                 .From<Module>()
                 .Where(m => m.Id == moduleId)
@@ -127,7 +117,6 @@ public class ProgressService
             var module = moduleResponse?.Models?.FirstOrDefault();
             if (module == null) return;
 
-            // Проверяем, существует ли уже запись
             var existingResponse = await _client
                 .From<UserModuleProgress>()
                 .Where(x => x.UserId == userId && x.ModuleId == moduleId)
@@ -137,7 +126,6 @@ public class ProgressService
 
             if (existing == null)
             {
-                // Создаем новую запись
                 var progress = new UserModuleProgress
                 {
                     Id = Guid.NewGuid().ToString(),
@@ -153,14 +141,12 @@ public class ProgressService
             }
             else if (!existing.IsCompleted)
             {
-                // Обновляем существующую запись
                 existing.IsCompleted = true;
                 existing.CompletedAt = DateTime.UtcNow;
                 await _client.From<UserModuleProgress>().Update(existing);
                 _logger.LogInformation("✅ Обновлена запись о завершении модуля {ModuleId}", moduleId);
             }
 
-            // После завершения модуля - разблокируем следующий
             await UnlockNextModuleAsync(userId, module);
         }
         catch (Exception ex)
@@ -189,7 +175,6 @@ public class ProgressService
             var isEnrolled = await IsUserEnrolledInCourseAsync(userId, module.CourseId);
             if (!isEnrolled) return false;
 
-            // Первый модуль всегда доступен
             if (module.ModuleOrder == 1) return true;
 
             var courseModulesResponse = await _client
@@ -217,8 +202,6 @@ public class ProgressService
             return false;
         }
     }
-
-    // ============ МЕТОДЫ ДЛЯ РАБОТЫ С УРОКАМИ ============
 
     public async Task CompleteLessonAsync(string userId, string lessonId)
     {
@@ -253,13 +236,10 @@ public class ProgressService
                 return;
             }
 
-            // 1. Отмечаем урок как завершенный
             await MarkLessonAsCompletedAsync(userId, lessonId);
 
-            // 2. Обновляем прогресс курса
             await UpdateCourseProgressAsync(userId, module.CourseId);
 
-            // 3. Проверяем, завершен ли модуль
             await CheckAndCompleteModuleAsync(userId, module.Id);
         }
         catch (Exception ex)
@@ -332,8 +312,6 @@ public class ProgressService
             _logger.LogError(ex, "Ошибка при проверке и завершении модуля");
         }
     }
-
-    // ============ МЕТОДЫ ДЛЯ РАБОТЫ С КУРСАМИ ============
 
     public async Task<bool> IsUserEnrolledInCourseAsync(string userId, string courseId)
     {
@@ -556,7 +534,6 @@ public class ProgressService
         }
     }
 
-    // ============ МЕТОДЫ ДЛЯ ПОЛУЧЕНИЯ ДАННЫХ ============
 
     public async Task<int> GetUserCourseProgressAsync(string userId, string courseId)
     {
@@ -662,15 +639,11 @@ public class ProgressService
         }
     }
 
-    // ============ МЕТОДЫ ДЛЯ СОВМЕСТИМОСТИ ============
-
-    // Этот метод оставляем для обратной совместимости
     public async Task UpdateUserProgressAsync(string userId, string lessonId)
     {
         await CompleteLessonAsync(userId, lessonId);
     }
 
-    // Этот метод оставляем для обратной совместимости
     public async Task CompleteModuleIfAllLessonsDoneAsync(string userId, string lessonId)
     {
         try
