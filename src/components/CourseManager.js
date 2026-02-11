@@ -242,7 +242,6 @@ export class CourseManager {
         }
 
         try {
-            // Обновляем активный урок в UI
             document.querySelectorAll('.lesson-item').forEach(item => {
                 item.classList.remove('active');
             });
@@ -252,28 +251,23 @@ export class CourseManager {
                 lessonElement.classList.add('active');
             }
             
-            // Загружаем урок
             const result = await this.api.getLesson(lessonId, this.userId);
             
             if (result.success) {
                 this.currentLesson = result.lesson;
                 this.renderLessonContent(result.lesson);
                 
-                // Проверяем статус урока
                 await this.checkAndUpdateLessonStatus(lessonId);
                 
-                // Проверяем, есть ли квиз или код-упражнение
                 const hasQuiz = await this.checkIfLessonHasQuiz(lessonId);
                 const hasCodeExercise = await this.checkIfLessonHasCodeExercise(lessonId);
                 
                 console.log(`Урок ${lessonId}: квиз=${hasQuiz}, код=${hasCodeExercise}`);
                 
-                // Если нет ни квиза, ни практики - автоматически завершаем
                 if (!hasQuiz && !hasCodeExercise) {
                     console.log('Урок без заданий - автоматически завершаем...');
                     await this.completeLessonAutomatically(lessonId);
                 } else {
-                    // Показываем соответствующие секции
                     if (hasQuiz) {
                         const quizLoaded = await this.quizManager.loadQuizQuestions(lessonId);
                         if (quizLoaded) {
@@ -309,30 +303,24 @@ export class CourseManager {
             
             console.log('Автоматическое завершение урока:', lessonId);
             
-            // Сразу обновляем UI
             this.updateLessonStatusInUI(lessonId, true);
             this.updateSidebarLessonStatus(lessonId, true);
             
-            // Отправляем запрос на сервер
             const result = await this.api.completeLesson(lessonId);
             
             if (result.success) {
                 console.log('Урок автоматически завершен:', lessonId);
                 this.uiManager.showToast('Урок пройден!', 'success');
                 
-                // Обновляем прогресс курса
                 if (this.currentCourse) {
                     await this.updateCourseProgressInUI(this.currentCourse.id);
                 }
                 
-                // ✅ ПРОВЕРЯЕМ И РАЗБЛОКИРУЕМ СЛЕДУЮЩИЙ МОДУЛЬ
                 await this.checkAndUpdateModuleCompletion();
                 
-                // Скрываем секции заданий
                 this.uiManager.hideQuizSection();
                 this.uiManager.hideCodeSection();
                 
-                // Показываем сообщение о завершении
                 this.showLessonCompletionMessage();
             } else {
                 console.warn('Не удалось автоматически завершить урок:', result.error);
@@ -709,7 +697,148 @@ export class CourseManager {
             this.uiManager.showButtonLoading('enroll-course-btn', false);
         }
     }
+    async checkAndUpdateModuleCompletion() {
+    try {
+        if (!this.currentModule || !this.currentCourse || !this.userId) {
+            console.log('Невозможно проверить модуль: отсутствуют данные');
+            return;
+        }
+        
+        console.log('🔍 ПРОВЕРКА ЗАВЕРШЕНИЯ МОДУЛЯ:', this.currentModule.id);
+        
+        const modulesResult = await this.api.getCourseModules(this.currentCourse.id, this.userId);
+        
+        if (!modulesResult.success) {
+            console.error('Не удалось загрузить модули');
+            return;
+        }
+        
+        const updatedCurrentModule = modulesResult.modules.find(m => m.id === this.currentModule.id);
+        
+        if (!updatedCurrentModule) {
+            console.error('Текущий модуль не найден');
+            return;
+        }
+        
+        console.log(`📊 Статус модуля "${updatedCurrentModule.title}":`, {
+            isCompleted: updatedCurrentModule.isCompleted,
+            isAccessible: updatedCurrentModule.isAccessible,
+            order: updatedCurrentModule.order
+        });
+        
+        this.updateModuleStatusInUI(updatedCurrentModule.id, updatedCurrentModule.isCompleted);
+        
+        if (updatedCurrentModule.isCompleted) {
+            console.log('🎉 МОДУЛЬ ЗАВЕРШЕН! Перезагружаем список модулей...');
+            
+            this.uiManager.showToast(`Модуль "${updatedCurrentModule.title}" завершен!`, 'success');
+            
+            await this.reloadCourseModules();
+            
+            const nextModule = this.allModules.find(m => 
+                m.isAccessible && !m.isCompleted && m.order > updatedCurrentModule.order
+            );
+            
+            if (nextModule) {
+                console.log(`🔓 Следующий модуль доступен: "${nextModule.title}"`);
+                this.uiManager.showToast(`Модуль "${nextModule.title}" разблокирован!`, 'success');
+            }
+        } else {
+            const completedLessons = this.currentLessons.filter(l => l.isCompleted).length;
+            console.log(`📚 Прогресс модуля: ${completedLessons}/${this.currentLessons.length} уроков`);
+        }
+        
+    } catch (error) {
+        console.error('Ошибка проверки модуля:', error);
+    }
+}
 
+async reloadCourseModules() {
+    try {
+        if (!this.currentCourse || !this.userId) {
+            console.log('Невозможно перезагрузить модули: нет данных');
+            return;
+        }
+        
+        console.log('🔄 Перезагрузка модулей курса:', this.currentCourse.id);
+        
+        const modulesResult = await this.api.getCourseModules(this.currentCourse.id, this.userId);
+        
+        if (modulesResult.success) {
+            const oldModuleIds = this.allModules.map(m => m.id);
+            
+            this.allModules = modulesResult.modules;
+            
+            console.log('📋 Модули после перезагрузки:');
+            this.allModules.forEach((m, i) => {
+                console.log(`  ${i+1}. ${m.title} - доступен: ${m.isAccessible}, завершен: ${m.isCompleted}`);
+            });
+            
+            this.renderCourseSidebar(this.currentCourse, this.allModules);
+            
+            for (const module of this.allModules) {
+                await this.loadModuleLessonsForSidebar(module.id);
+            }
+            
+            if (this.currentModule) {
+                const updatedCurrentModule = this.allModules.find(m => m.id === this.currentModule.id);
+                if (updatedCurrentModule) {
+                    this.currentModule = updatedCurrentModule;
+                    this.updateModuleStatusInUI(this.currentModule.id, this.currentModule.isCompleted);
+                }
+            }
+            
+            console.log('✅ Модули перезагружены');
+            return true;
+        } else {
+            console.error('❌ Ошибка перезагрузки модулей');
+            return false;
+        }
+    } catch (error) {
+        console.error('❌ Ошибка перезагрузки модулей:', error);
+        return false;
+    }
+}
+
+async completeLessonAutomatically(lessonId) {
+    try {
+        if (!this.isUserEnrolled) {
+            console.log('Пользователь не записан на курс');
+            return;
+        }
+        
+        console.log('✅ Автоматическое завершение урока:', lessonId);
+        
+        const lesson = this.currentLessons.find(l => l.id === lessonId);
+        if (lesson) {
+            lesson.isCompleted = true;
+            this.updateLessonStatusInUI(lessonId, true);
+            this.updateSidebarLessonStatus(lessonId, true);
+        }
+        
+        const result = await this.api.completeLesson(lessonId);
+        
+        if (result.success) {
+            console.log('✅ Урок успешно завершен на сервере');
+            this.uiManager.showToast('Урок пройден!', 'success');
+            
+            if (this.currentCourse) {
+                await this.updateCourseProgressInUI(this.currentCourse.id);
+            }
+            
+            await this.checkAndUpdateModuleCompletion();
+            
+            if (this.currentModule) {
+                await this.loadModuleLessons(this.currentModule.id);
+            }
+            
+        } else {
+            console.error('❌ Не удалось завершить урок:', result.error);
+        }
+    } catch (error) {
+        console.error('❌ Ошибка автоматического завершения урока:', error);
+    }
+}
     async loadCodeTemplate(lessonId, languageId) {
         try {
             const result = await this.api.getCodeTemplate(lessonId, languageId, this.userId);
@@ -772,14 +901,14 @@ export class CourseManager {
                 if (result.success) {
                     this.uiManager.showToast('Решение отправлено! Урок завершен.', 'success');
                     
-                    // Обновляем статус
+                  
                     this.updateLessonStatusInUI(this.currentLesson.id, true);
                     this.updateSidebarLessonStatus(this.currentLesson.id, true);
                     
-                    // Проверяем завершение модуля
+                    
                     await this.checkAndUpdateModuleCompletion();
                     
-                    // Обновляем прогресс курса
+                    
                     if (this.currentCourse) {
                         await this.updateCourseProgressInUI(this.currentCourse.id);
                     }
