@@ -44,6 +44,8 @@ builder.Services.AddScoped<TokenService>();
 builder.Services.AddScoped<CourseService>();
 builder.Services.AddScoped<QuizService>();
 builder.Services.AddScoped<ProgressService>();
+builder.Services.AddHttpClient();
+builder.Services.AddScoped<CodeExecutionService>();
 
 builder.Services.AddCors(options =>
 {
