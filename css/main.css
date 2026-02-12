@@ -931,3 +931,308 @@
     transform: none;
     box-shadow: none;
 }
+/* Компилятор кода */
+.code-section {
+    margin-top: 30px;
+    border-top: 1px solid #e2e8f0;
+    padding-top: 20px;
+}
+
+.editor-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.language-select {
+    padding: 8px 12px;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    background: white;
+    font-size: 14px;
+}
+
+.code-editor {
+    width: 100%;
+    height: 400px;
+    font-family: 'Fira Code', monospace;
+    font-size: 14px;
+    padding: 16px;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    background: #1e293b;
+    color: #e2e8f0;
+    resize: vertical;
+}
+
+#monaco-container {
+    margin-bottom: 12px;
+}
+
+.editor-actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 12px;
+}
+
+/* Результаты */
+.results-section {
+    margin-top: 20px;
+    padding: 20px;
+    background: #f8fafc;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+}
+
+.results-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+}
+
+.score-badge {
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-weight: bold;
+    font-size: 1.2rem;
+}
+
+.score-badge.success {
+    background: #d1fae5;
+    color: #065f46;
+}
+
+.score-badge.warning {
+    background: #fed7aa;
+    color: #92400e;
+}
+
+/* Тесты */
+.tests-summary {
+    margin-bottom: 20px;
+}
+
+.summary-stats {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 8px;
+    color: #4b5563;
+    font-size: 0.9rem;
+}
+
+.test-result {
+    margin-bottom: 12px;
+    padding: 12px;
+    border-radius: 6px;
+    border-left: 4px solid;
+}
+
+.test-result.passed {
+    background: #f0fdf4;
+    border-left-color: #10b981;
+}
+
+.test-result.failed {
+    background: #fef2f2;
+    border-left-color: #ef4444;
+}
+
+.test-result.hidden-test {
+    background: #f3f4f6;
+    border-left-color: #9ca3af;
+}
+
+.test-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.test-status {
+    font-size: 1.2rem;
+    margin-right: 8px;
+}
+
+.test-details {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px dashed #e2e8f0;
+}
+
+.test-details pre {
+    background: #1e293b;
+    color: #e2e8f0;
+    padding: 8px;
+    border-radius: 4px;
+    overflow-x: auto;
+    margin: 8px 0;
+    font-size: 0.85rem;
+}
+
+/* История попыток */
+.submissions-history {
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid #e2e8f0;
+}
+
+.history-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.history-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 12px;
+    background: white;
+    border-radius: 6px;
+    border: 1px solid #e2e8f0;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.history-item:hover {
+    background: #f8fafc;
+    border-color: #94a3b8;
+}
+
+.history-item.success {
+    border-left-color: #10b981;
+}
+
+.history-item.failed {
+    border-left-color: #ef4444;
+}
+
+.history-time {
+    font-size: 0.85rem;
+    color: #64748b;
+    min-width: 80px;
+}
+
+.history-status {
+    font-weight: bold;
+    min-width: 30px;
+}
+
+.history-status.success {
+    color: #10b981;
+}
+
+.history-status.failed {
+    color: #ef4444;
+}
+
+.history-score {
+    font-weight: bold;
+    min-width: 60px;
+}
+
+.history-tests {
+    color: #64748b;
+    min-width: 80px;
+}
+
+.history-time-ms {
+    color: #64748b;
+    font-size: 0.85rem;
+    margin-left: auto;
+}
+
+/* Выполнение */
+.execution-output,
+.execution-error {
+    margin-top: 16px;
+}
+
+.execution-output pre,
+.execution-error pre {
+    background: #1e293b;
+    color: #e2e8f0;
+    padding: 12px;
+    border-radius: 6px;
+    overflow-x: auto;
+    font-family: 'Fira Code', monospace;
+}
+
+.execution-time {
+    color: #6b7280;
+    font-size: 0.9rem;
+}
+
+/* Анимация загрузки */
+.btn-success.loading,
+.btn-primary.loading {
+    position: relative;
+    color: transparent;
+}
+
+.btn-success.loading::after,
+.btn-primary.loading::after {
+    content: '';
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    top: 50%;
+    left: 50%;
+    margin-left: -8px;
+    margin-top: -8px;
+    border: 2px solid white;
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: button-loading-spinner 0.8s linear infinite;
+}
+
+@keyframes button-loading-spinner {
+    from {
+        transform: rotate(0turn);
+    }
+    to {
+        transform: rotate(1turn);
+    }
+}
+
+/* Сообщение о завершении урока */
+.lesson-completion-message {
+    margin-top: 30px;
+    padding: 24px;
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: white;
+    border-radius: 12px;
+    text-align: center;
+}
+
+.lesson-completion-message .completion-icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+}
+
+.lesson-completion-message h3 {
+    color: white;
+    margin-bottom: 8px;
+}
+
+.lesson-completion-message .completion-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    margin-top: 20px;
+}
+
+.lesson-completion-message .btn-primary {
+    background: white;
+    color: #059669;
+}
+
+.lesson-completion-message .btn-secondary {
+    background: rgba(255,255,255,0.2);
+    color: white;
+    border: 1px solid white;
+}

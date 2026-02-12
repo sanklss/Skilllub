@@ -375,4 +375,15 @@ export class ApiService {
     });
     return response.json();
 }
-}
+async runCode(code, language) {
+    const response = await this.request('/code/execute', {
+        method: 'POST',
+        body: JSON.stringify({
+            code: code,
+            language: language,
+            lessonId: window.app?.courseManager?.currentLesson?.id || '',
+            languageId: language === 'python' ? '11111111-1111-1111-1111-111111111111' : ''
+        })
+    });
+    return response.json();
+}}

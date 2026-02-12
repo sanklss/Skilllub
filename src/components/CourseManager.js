@@ -1068,4 +1068,23 @@ async completeLessonAutomatically(lessonId) {
             timeout = setTimeout(later, wait);
         };
     }
+    async runCode() {
+    const code = document.getElementById('code-editor').value;
+    const language = document.getElementById('language-select').value;
+    
+    console.log('Запуск кода:', code);
+    
+    const result = await this.api.runCode(code, language);
+    console.log('Результат:', result);
+    
+    alert('Код выполнен! Результат в консоли (F12)');
+}
+
+async loadCodeTemplate(lessonId) {
+    const codeEditor = document.getElementById('code-editor');
+    codeEditor.value = 'print("Hello World")';
+    codeEditor.disabled = false;
+    
+    document.getElementById('run-code').disabled = false;
+}
 }
