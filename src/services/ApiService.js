@@ -386,4 +386,58 @@ async runCode(code, language) {
         })
     });
     return response.json();
-}}
+}
+async markTheoryAsRead(lessonId) {
+        try {
+            const response = await this.request(`/progress/lesson/${lessonId}/mark-theory-read`, {
+                method: 'POST'
+            });
+            return await response.json();
+        } catch (error) {
+            console.error('Error marking theory as read:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    async getLessonDetailedStatus(lessonId) {
+        try {
+            const response = await this.request(`/progress/lesson/${lessonId}/detailed-status`);
+            return await response.json();
+        } catch (error) {
+            console.error('Error getting lesson detailed status:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    async checkLessonProgress(lessonId) {
+        try {
+            const response = await this.request(`/progress/lesson/${lessonId}/status`);
+            return await response.json();
+        } catch (error) {
+            console.error('Error checking lesson progress:', error);
+            return { success: false, completed: false };
+        }
+    }
+    
+async runCodeTests(lessonId, code, language) {
+    try {
+        console.log('Calling runCodeTests API:', { lessonId, language });
+        
+        const response = await this.request('/code/lessons/' + lessonId + '/run-tests', {
+            method: 'POST',
+            body: JSON.stringify({
+                code: code,
+                language: language,
+                languageId: language === 'python' ? '11111111-1111-1111-1111-111111111111' : ''
+            })
+        });
+        
+        const data = await response.json();
+        console.log('runCodeTests response:', data);
+        return data;
+    } catch (error) {
+        console.error('Error running code tests:', error);
+        return { success: false, error: error.message };
+    }
+}
+}

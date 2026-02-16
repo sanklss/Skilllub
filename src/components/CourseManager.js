@@ -21,14 +21,28 @@ export class CourseManager {
     }
 
     setupCourseEventListeners() {
-        document.getElementById('prev-step')?.addEventListener('click', () => this.goToPreviousStep());
-        document.getElementById('next-step')?.addEventListener('click', () => this.goToNextStep());
-        document.getElementById('run-code')?.addEventListener('click', () => this.runCode());
-        document.getElementById('reset-code')?.addEventListener('click', () => this.resetCode());
-        document.getElementById('submit-code')?.addEventListener('click', () => this.submitCode());
-        document.getElementById('search-input')?.addEventListener('input', this.debounce(this.searchCourses.bind(this), 300));
-        document.getElementById('reset-filters')?.addEventListener('click', () => this.resetFilters());
+    document.getElementById('prev-step')?.addEventListener('click', () => this.goToPreviousStep());
+    document.getElementById('next-step')?.addEventListener('click', () => this.goToNextStep());
+    document.getElementById('run-code')?.addEventListener('click', () => this.runCode());
+    document.getElementById('reset-code')?.addEventListener('click', () => this.resetCode());
+    
+    const submitBtn = document.getElementById('submit-code');
+    if (submitBtn) {
+        console.log('✅ Found submit-code button, adding event listener');
+        
+        const newSubmitBtn = submitBtn.cloneNode(true);
+        submitBtn.parentNode.replaceChild(newSubmitBtn, submitBtn);
+        
+        newSubmitBtn.addEventListener('click', (e) => {
+            console.log('🟢 submit-code button clicked!');
+            this.submitCode();
+        });
     }
+    
+    document.getElementById('search-input')?.addEventListener('input', this.debounce(this.searchCourses.bind(this), 300));
+    document.getElementById('reset-filters')?.addEventListener('click', () => this.resetFilters());
+}
+
 
     async loadCourses() {
         try {
@@ -140,40 +154,40 @@ export class CourseManager {
     }
 
     async openModule(moduleId) {
-        if (!this.isUserEnrolled && this.isAuthenticated) {
-            this.uiManager.showToast('Запишитесь на курс, чтобы открыть модуль', 'warning');
-            return;
-        }
-        
-        const module = this.allModules.find(m => m.id === moduleId);
-        if (!module) {
-            this.uiManager.showToast('Модуль не найден', 'error');
-            return;
-        }
-        
-        if (!module.isAccessible) {
-            if (module.isCompleted) {
-                this.uiManager.showToast('Этот модуль уже завершен', 'info');
-            } else {
-                this.uiManager.showToast('Этот модуль пока недоступен. Завершите предыдущий модуль.', 'warning');
-            }
-            return;
-        }
-        
-        try {
-            await this.loadModuleLessons(moduleId);
-            
-            if (this.currentLessons.length > 0) {
-                await this.openLesson(this.currentLessons[0].id);
-            }
-            
-            this.updateActiveModule(moduleId);
-            
-        } catch (error) {
-            console.error('Failed to open module:', error);
-            this.uiManager.showToast('Ошибка загрузки модуля', 'error');
-        }
+    if (!this.isUserEnrolled && this.isAuthenticated) {
+        this.uiManager.showToast('Запишитесь на курс, чтобы открыть модуль', 'warning');
+        return;
     }
+    
+    const module = this.allModules.find(m => m.id === moduleId);
+    if (!module) {
+        this.uiManager.showToast('Модуль не найден', 'error');
+        return;
+    }
+    
+    if (!module.isAccessible) {
+        if (module.isCompleted) {
+            this.uiManager.showToast('Этот модуль уже завершен', 'info');
+        } else {
+            this.uiManager.showToast('Этот модуль пока недоступен. Завершите предыдущий модуль.', 'warning');
+        }
+        return;
+    }
+    
+    try {
+        await this.loadModuleLessons(moduleId);
+        
+        if (this.currentLessons && this.currentLessons.length > 0) {
+            console.log(`✅ Загружено ${this.currentLessons.length} уроков для модуля ${moduleId}`);
+        }
+        
+        this.updateActiveModule(moduleId);
+        
+    } catch (error) {
+        console.error('Failed to open module:', error);
+        this.uiManager.showToast('Ошибка загрузки модуля', 'error');
+    }
+}
 
     async loadModuleLessons(moduleId) {
         try {
@@ -880,42 +894,84 @@ async completeLessonAutomatically(lessonId) {
     }
 
     async submitCode() {
-        if (!this.isUserEnrolled) {
-            this.uiManager.showToast('Запишитесь на курс, чтобы выполнять задания', 'warning');
-            return;
-        }
+    console.log('🔵 submitCode called!');
+    
+    if (!this.isUserEnrolled) {
+        console.log('🔴 User not enrolled');
+        this.uiManager.showToast('Запишитесь на курс, чтобы выполнять задания', 'warning');
+        return;
+    }
+    
+    const codeEditor = document.getElementById('code-editor');
+    if (!codeEditor) {
+        console.log('🔴 Code editor not found');
+        this.uiManager.showToast('Ошибка: редактор кода не найден', 'error');
+        return;
+    }
+    
+    const code = codeEditor.value;
+    const language = document.getElementById('language-select')?.value || 'python';
+    
+    console.log('📝 Code to submit:', { 
+        lessonId: this.currentLesson?.id,
+        language, 
+        codeLength: code.length,
+        codePreview: code.substring(0, 50) + '...'
+    });
+    
+    if (!this.currentLesson) {
+        console.log('🔴 No current lesson');
+        this.uiManager.showToast('Урок не выбран', 'error');
+        return;
+    }
+    
+    if (!code || code.trim() === '') {
+        console.log('🔴 Empty code');
+        this.uiManager.showToast('Напишите код перед отправкой', 'warning');
+        return;
+    }
+    
+    try {
+        this.uiManager.showButtonLoading('submit-code', true);
         
-        const code = document.getElementById('code-editor').value;
-        const language = document.getElementById('language-select').value;
+        console.log('🟡 Calling API.runCodeTests...');
         
-        console.log('Submitting code:', { code, language });
+        const result = await this.api.runCodeTests(
+            this.currentLesson.id, 
+            code, 
+            language
+        );
         
-        if (this.currentLesson) {
-            try {
-                const result = await this.api.completeLesson(this.currentLesson.id);
-                if (result.success) {
-                    this.uiManager.showToast('Решение отправлено! Урок завершен.', 'success');
-                    
-                  
-                    this.updateLessonStatusInUI(this.currentLesson.id, true);
-                    this.updateSidebarLessonStatus(this.currentLesson.id, true);
-                    
-                    
-                    await this.checkAndUpdateModuleCompletion();
-                    
-                    
-                    if (this.currentCourse) {
-                        await this.updateCourseProgressInUI(this.currentCourse.id);
-                    }
-                }
-            } catch (error) {
-                console.error('Failed to complete lesson:', error);
-                this.uiManager.showToast('Ошибка при завершении урока', 'error');
+        console.log('🟢 API response received:', result);
+        
+        this.uiManager.showButtonLoading('submit-code', false);
+        
+        if (result.success && result.result) {
+            console.log('✅ Result:', result.result);
+            
+            this.showTestResults(result.result);
+            
+            if (result.result.passedTests === result.result.totalTests && 
+                result.result.totalTests > 0) {
+                
+                this.uiManager.showToast('🎉 Задание выполнено! Урок завершен.', 'success');
+                
+                await this.refreshLessonStatus(this.currentLesson.id);
+                
+                await this.checkAndUpdateModuleCompletion();
+            } else {
+                this.uiManager.showToast(`❌ Пройдено ${result.result.passedTests || 0} из ${result.result.totalTests || 0} тестов`, 'warning');
             }
         } else {
-            this.uiManager.showToast('Решение отправлено на проверку!', 'success');
+            console.log('🔴 API returned error:', result.error);
+            this.uiManager.showToast(result.error || 'Ошибка при проверке кода', 'error');
         }
+    } catch (error) {
+        console.error('🔴 Exception in submitCode:', error);
+        this.uiManager.showToast('Ошибка: ' + error.message, 'error');
+        this.uiManager.showButtonLoading('submit-code', false);
     }
+}
 
     async checkAndUpdateLessonStatus(lessonId) {
         try {
@@ -1087,4 +1143,313 @@ async loadCodeTemplate(lessonId) {
     
     document.getElementById('run-code').disabled = false;
 }
+async onLessonOpened(lessonId) {
+        try {
+            if (!this.isUserEnrolled) {
+                console.log('User not enrolled, skipping theory marking');
+                return;
+            }
+            
+            console.log('📖 Marking theory as read for lesson:', lessonId);
+            
+            const result = await this.api.markTheoryAsRead(lessonId);
+            
+            if (result.success) {
+                console.log('✅ Theory marked as read:', lessonId);
+                
+                await this.refreshLessonStatus(lessonId);
+                
+                await this.checkLessonCompletion(lessonId);
+            } else {
+                console.warn('Failed to mark theory as read:', result.error);
+            }
+        } catch (error) {
+            console.error('❌ Error marking theory as read:', error);
+        }
+    }
+
+    async refreshLessonStatus(lessonId) {
+        try {
+            const result = await this.api.getLessonDetailedStatus(lessonId);
+            
+            if (result.success && result.status) {
+                const status = result.status;
+                
+                console.log(`📊 Lesson ${lessonId} status:`, {
+                    theory: status.theoryCompleted,
+                    practice: status.practiceCompleted,
+                    completed: status.isCompleted
+                });
+                
+                this.updateLessonStatusIcons(lessonId, status);
+                
+                if (status.isCompleted) {
+                    await this.onLessonCompleted(lessonId);
+                }
+                
+                if (this.currentLesson && this.currentLesson.id === lessonId) {
+                    this.currentLesson.isTheoryCompleted = status.theoryCompleted;
+                    this.currentLesson.isPracticeCompleted = status.practiceCompleted;
+                    this.currentLesson.isCompleted = status.isCompleted;
+                }
+            }
+        } catch (error) {
+            console.error('❌ Error refreshing lesson status:', error);
+        }
+    }
+
+    updateLessonStatusIcons(lessonId, status) {
+        const lessonElement = document.querySelector(`[data-lesson-id="${lessonId}"]`);
+        if (!lessonElement) return;
+
+        lessonElement.classList.remove('theory-done', 'practice-done', 'completed', 'not-started');
+        
+        if (status.isCompleted) {
+            lessonElement.classList.add('completed');
+        } else if (status.theoryCompleted && status.practiceCompleted) {
+            lessonElement.classList.add('completed');
+        } else if (status.theoryCompleted) {
+            lessonElement.classList.add('theory-done');
+        } else if (status.practiceCompleted) {
+            lessonElement.classList.add('practice-done');
+        } else {
+            lessonElement.classList.add('not-started');
+        }
+
+        let statusElement = lessonElement.querySelector('.lesson-status');
+        
+        if (!statusElement) {
+            statusElement = document.createElement('div');
+            statusElement.className = 'lesson-status';
+            
+            const lessonInfo = lessonElement.querySelector('.lesson-info');
+            if (lessonInfo) {
+                lessonInfo.appendChild(statusElement);
+            }
+        }
+        
+        if (status.isCompleted) {
+            statusElement.textContent = '✅ Завершен';
+            statusElement.className = 'lesson-status completed';
+        } else if (status.theoryCompleted && status.practiceCompleted) {
+            statusElement.textContent = '✅ Завершен';
+            statusElement.className = 'lesson-status completed';
+        } else if (status.theoryCompleted) {
+            statusElement.textContent = '📖 Теория';
+            statusElement.className = 'lesson-status theory';
+        } else if (status.practiceCompleted) {
+            statusElement.textContent = '💻 Задание';
+            statusElement.className = 'lesson-status practice';
+        } else {
+            statusElement.textContent = '📝 Не начат';
+            statusElement.className = 'lesson-status not-started';
+        }
+    }
+
+    async checkLessonCompletion(lessonId) {
+        try {
+            const result = await this.api.getLessonDetailedStatus(lessonId);
+            
+            if (result.success && result.status && result.status.isCompleted) {
+                console.log('🎉 Lesson fully completed:', lessonId);
+                await this.onLessonCompleted(lessonId);
+                return true;
+            }
+            
+            return false;
+        } catch (error) {
+            console.error('❌ Error checking lesson completion:', error);
+            return false;
+        }
+    }
+
+    async onLessonCompleted(lessonId) {
+        console.log('🎉 Lesson fully completed:', lessonId);
+        
+        this.uiManager.showToast('🎉 Урок полностью завершен!', 'success');
+        
+        if (this.currentCourse) {
+            await this.updateCourseProgressInUI(this.currentCourse.id);
+        }
+        
+        await this.checkAndUpdateModuleCompletion();
+        
+        if (this.currentModule) {
+            await this.loadModuleLessons(this.currentModule.id);
+        }
+        
+        if (this.currentLesson && this.currentLesson.id === lessonId) {
+            this.currentLesson.isCompleted = true;
+            
+            this.showNextLessonPrompt();
+        }
+    }
+
+    showNextLessonPrompt() {
+        const currentIndex = this.currentLessons.findIndex(l => l.id === this.currentLesson?.id);
+        
+        if (currentIndex < this.currentLessons.length - 1) {
+            const nextLesson = this.currentLessons[currentIndex + 1];
+            
+            const stepContent = document.querySelector('.step-content');
+            if (stepContent && !stepContent.querySelector('.next-lesson-prompt')) {
+                const promptHtml = `
+                    <div class="next-lesson-prompt">
+                        <div class="prompt-icon">🎉</div>
+                        <div class="prompt-text">
+                            <h4>Урок завершен!</h4>
+                            <p>Хотите перейти к следующему уроку?</p>
+                        </div>
+                        <div class="prompt-actions">
+                            <button class="btn-primary" onclick="app.courseManager.goToNextStep()">
+                                Следующий урок →
+                            </button>
+                            <button class="btn-secondary" onclick="this.closest('.next-lesson-prompt').remove()">
+                                Остаться здесь
+                            </button>
+                        </div>
+                    </div>
+                `;
+                
+                stepContent.insertAdjacentHTML('beforeend', promptHtml);
+            }
+        }
+    }
+
+    async openLesson(lessonId) {
+        try {
+            if (!this.isUserEnrolled && this.isAuthenticated) {
+                this.uiManager.showToast('Запишитесь на курс, чтобы открыть урок', 'warning');
+                return;
+            }
+
+            document.querySelectorAll('.lesson-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            
+            const lessonElement = document.querySelector(`[data-lesson-id="${lessonId}"]`);
+            if (lessonElement) {
+                lessonElement.classList.add('active');
+            }
+            
+            const result = await this.api.getLesson(lessonId, this.userId);
+            
+            if (result.success) {
+                this.currentLesson = result.lesson;
+                this.renderLessonContent(result.lesson);
+                
+                // ВАЖНО: Отмечаем теорию как прочитанную
+                if (this.isUserEnrolled) {
+                    await this.onLessonOpened(lessonId);
+                }
+                
+                await this.refreshLessonStatus(lessonId);
+                
+                const hasQuiz = await this.checkIfLessonHasQuiz(lessonId);
+                const hasCodeExercise = await this.checkIfLessonHasCodeExercise(lessonId);
+                
+                console.log(`Урок ${lessonId}: квиз=${hasQuiz}, код=${hasCodeExercise}`);
+                
+                if (!hasQuiz && !hasCodeExercise) {
+                    console.log('Урок без заданий - автоматически завершаем теорию...');
+                    
+                    if (this.isUserEnrolled) {
+                        await this.api.completeLesson(lessonId);
+                        await this.refreshLessonStatus(lessonId);
+                    }
+                } else {
+                    if (hasQuiz) {
+                        const quizLoaded = await this.quizManager.loadQuizQuestions(lessonId);
+                        if (quizLoaded) {
+                            this.uiManager.showQuizSection();
+                        } else {
+                            this.uiManager.hideQuizSection();
+                        }
+                    } else {
+                        this.uiManager.hideQuizSection();
+                    }
+                    
+                    if (hasCodeExercise) {
+                        const pythonLanguageId = '11111111-1111-1111-1111-111111111111';
+                        await this.loadCodeTemplate(lessonId, pythonLanguageId);
+                        this.uiManager.showCodeSection();
+                    } else {
+                        this.uiManager.hideCodeSection();
+                    }
+                }
+                
+            } else {
+                this.uiManager.showToast('Урок не найден или недоступен', 'error');
+            }
+        } catch (error) {
+            console.error('❌ Failed to open lesson:', error);
+            this.uiManager.showToast('Ошибка загрузки урока', 'error');
+        }
+    }
+
+    async completeLessonAutomatically(lessonId) {
+        try {
+            if (!this.isUserEnrolled) return;
+            
+            console.log('Автоматическое завершение урока (без заданий):', lessonId);
+            
+            await this.api.markTheoryAsRead(lessonId);
+            await this.api.completeLesson(lessonId);
+            
+            await this.refreshLessonStatus(lessonId);
+            
+        } catch (error) {
+            console.error('❌ Ошибка автоматического завершения урока:', error);
+        }
+    }
+
+showTestResults(result) {
+    console.log('📊 Showing test results:', result);
+    
+    let resultsSection = document.getElementById('results-section');
+    
+    if (!resultsSection) {
+        console.log('Creating results section');
+        resultsSection = document.createElement('div');
+        resultsSection.id = 'results-section';
+        resultsSection.className = 'results-section';
+        
+        const stepContainer = document.querySelector('.step-container');
+        if (stepContainer) {
+            stepContainer.appendChild(resultsSection);
+        } else {
+            console.log('Step container not found');
+            return;
+        }
+    }
+    
+    resultsSection.classList.remove('hidden');
+    
+    let html = '<h3>Результаты проверки:</h3>';
+    html += `<p>Пройдено тестов: ${result.passedTests || 0} из ${result.totalTests || 0}</p>`;
+    html += `<p>Оценка: ${result.score || 0}%</p>`;
+    
+    if (result.output) {
+        html += `<div class="test-output"><pre>${result.output}</pre></div>`;
+    }
+    
+    if (result.testResults && result.testResults.length > 0) {
+        html += '<div class="test-details"><h4>Детали:</h4>';
+        result.testResults.forEach((test, index) => {
+            const status = test.passed ? '✅' : '❌';
+            html += `<div class="test-item ${test.passed ? 'passed' : 'failed'}">`;
+            html += `<div>${status} Тест ${index + 1}</div>`;
+            if (!test.passed && !test.isHidden && test.actualOutput) {
+                html += `<div><small>Ожидалось: ${test.expectedOutput}</small></div>`;
+                html += `<div><small>Получено: ${test.actualOutput}</small></div>`;
+            }
+            html += '</div>';
+        });
+        html += '</div>';
+    }
+    
+    resultsSection.innerHTML = html;
+    console.log('✅ Results displayed');
+}
+
 }

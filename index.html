@@ -120,7 +120,6 @@
                     <div class="quiz-actions">
                         <button class="btn-secondary" id="quiz-prev" disabled>← Назад</button>
                         <button class="btn-primary" id="quiz-next">Далее →</button>
-                        <!-- ДОБАВИТЬ ЭТУ КНОПКУ -->
                         <button class="btn-success" id="quiz-submit" disabled>Отправить ответы</button>
                         <button class="btn-secondary" id="quiz-close">Закрыть тест</button>
                     </div>
@@ -136,10 +135,9 @@
                 </div>
                 <textarea class="code-editor" id="code-editor" placeholder="Напишите ваш код здесь..." disabled></textarea>
                 <div class="editor-actions">
-                  <button class="btn-primary" id="run-code" disabled>Запустить код</button>
-                  <button class="btn-secondary" id="reset-code" disabled>Сбросить</button>
-                  <button class="btn-success" id="submit-code" disabled>Отправить решение</button>
-                </div>
+                  <button class="btn-primary" id="run-code">Запустить код</button>
+                  <button class="btn-secondary" id="reset-code">Сбросить</button>
+                  <button class="btn-success" id="submit-code">Отправить решение</button>                </div>
               </div>
 
               <div class="results-section hidden" id="results-section">
@@ -375,7 +373,6 @@
     </main>
   </div>
 
-<!-- МОДАЛЬНЫЕ ОКНА (ТОЛЬКО ОДИН ЭКЗЕМПЛЯР КАЖДОГО) -->
 <div id="modal-login" class="modal hidden" role="dialog" aria-labelledby="login-title">
     <div class="modal-card">
         <header><h3 id="login-title">Вход в LearnBox</h3></header>
@@ -520,7 +517,6 @@
     </div>
 </div>
 
-<!-- TEMPLATES -->
 <template id="admin-dashboard-template">
     <div class="admin-stats-grid">
       <div class="stat-card">
