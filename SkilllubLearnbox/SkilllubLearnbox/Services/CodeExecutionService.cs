@@ -14,20 +14,25 @@ public class CodeExecutionService
     private readonly Supabase.Client _supabaseClient;
     private readonly ProgressService _progressService;
     private readonly string _compilerUrl;
+    private readonly Supabase.Client _client; 
+
 
     public CodeExecutionService(
         ILogger<CodeExecutionService> logger,
         IHttpClientFactory httpClientFactory,
         Supabase.Client supabaseClient,
         ProgressService progressService,
-        IConfiguration configuration)
+        IConfiguration configuration, Supabase.Client client)
     {
         _logger = logger;
+        _client = client;
         _httpClient = httpClientFactory.CreateClient();
         _supabaseClient = supabaseClient;
         _progressService = progressService;
         _compilerUrl = configuration["CompilerService:Url"] ?? "http://localhost:8000";
+
     }
+    
 
     public async Task<CodeExecutionResultDto> ExecuteCodeAsync(CodeExecuteDto dto)
     {
@@ -46,6 +51,10 @@ public class CodeExecutionService
 
             var response = await _httpClient.PostAsJsonAsync($"{_compilerUrl}/execute", request);
 
+            var responseBody = await response.Content.ReadAsStringAsync();
+            Console.WriteLine("\n========== ОТВЕТ ОТ КОМПИЛЯТОРА (RAW) ==========");
+            Console.WriteLine(responseBody);
+            Console.WriteLine("================================================\n");
             if (!response.IsSuccessStatusCode)
             {
                 var errorContent = await response.Content.ReadAsStringAsync();
@@ -57,7 +66,10 @@ public class CodeExecutionService
                 };
             }
 
-            var result = await response.Content.ReadFromJsonAsync<CodeExecutionResultDto>();
+            var result = JsonSerializer.Deserialize<CodeExecutionResultDto>(responseBody, new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
+            });
 
             await SaveSubmissionAsync(dto, result);
 
@@ -84,7 +96,7 @@ public class CodeExecutionService
 
             if (tests.Count == 0)
             {
-                _logger.LogWarning("No tests found for lesson {LessonId}", lessonId);
+                _logger.LogWarning("⚠️ No tests found for lesson {LessonId}", lessonId);
                 return new CodeExecutionResultDto
                 {
                     Success = true,
@@ -94,21 +106,12 @@ public class CodeExecutionService
                     Score = 0
                 };
             }
-
             var request = new
             {
                 code = code,
                 language = language,
                 stdin = "",
-                test_cases = tests.Select(t => new
-                {
-                    input = t.Input,
-                    expected_output = t.ExpectedOutput,
-                    is_hidden = t.IsHidden,
-                    timeout_ms = t.TimeoutMs,
-                    weight = t.Weight
-                }),
-                time_limit = 5
+                timeout = 5
             };
 
             var response = await _httpClient.PostAsJsonAsync($"{_compilerUrl}/execute", request);
@@ -117,16 +120,58 @@ public class CodeExecutionService
             if (result != null)
             {
                 result.TotalTests = tests.Count;
-                result.PassedTests = result.TestResults?.Count(t => t.Passed) ?? 0;
-                result.Score = CalculateScore(result.TestResults, tests);
+
+                var testResults = new List<TestResultDto>();
+                int passedCount = 0;
+
+                foreach (var test in tests)
+                {
+                    bool passed = false;
+
+                    if (string.IsNullOrEmpty(test.Input))
+                    {
+                        passed = (result.Output ?? "").TrimEnd() == test.ExpectedOutput.TrimEnd();
+                    }
+                    else
+                    {
+                        passed = false;
+                    }
+
+                    testResults.Add(new TestResultDto
+                    {
+                        TestId = testResults.Count,
+                        Passed = passed,
+                        Input = test.Input,
+                        ExpectedOutput = test.ExpectedOutput,
+                        ActualOutput = result.Output ?? "",
+                        ExecutionTimeMs = result.ExecutionTimeMs,
+                        IsHidden = test.IsHidden,
+                        Weight = test.Weight
+                    });
+
+                    if (passed) passedCount++;
+                }
+
+                result.TestResults = testResults;
+                result.PassedTests = passedCount;
+                result.Score = passedCount * 100 / tests.Count;
+
+                if (passedCount == tests.Count)
+                {
+                    result.Output = $"Все тесты пройдены! ({passedCount}/{tests.Count})";
+                }
+                else
+                {
+                    result.Output = $"Пройдено {passedCount} из {tests.Count} тестов";
+                }
 
                 var submission = await SaveSubmissionWithTestsAsync(
                     userId, lessonId, language, code, result, tests);
 
                 if (result.PassedTests == result.TotalTests && result.TotalTests > 0)
                 {
-                    _logger.LogInformation("All tests passed for lesson {LessonId}, completing lesson", lessonId);
-                    await _progressService.CompleteLessonAsync(userId, lessonId);
+                    _logger.LogInformation("All tests passed for lesson {LessonId}, marking practice as completed", lessonId);
+                    await _progressService.MarkPracticeAsCompletedAsync(userId, lessonId, result.Score ?? 100);
                 }
             }
 
@@ -134,7 +179,7 @@ public class CodeExecutionService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error running tests for lesson {LessonId}", lessonId);
+            _logger.LogError(ex, "❌ Error running tests for lesson {LessonId}", lessonId);
             return new CodeExecutionResultDto
             {
                 Success = false,
@@ -143,28 +188,45 @@ public class CodeExecutionService
         }
     }
 
-    private async Task<List<TestDto>> GetTestsForLessonAsync(string lessonId, string language)
+    private async Task<List<TestDto>> GetTestsForLessonAsync(string lessonId, string languageName)
     {
         try
         {
-            await _supabaseClient.InitializeAsync();
+            await _client.InitializeAsync();
 
-            // Получаем ID языка программирования
-            var langResponse = await _supabaseClient
+            Console.WriteLine($"🔍 Поиск тестов для урока {lessonId}");
+
+            var allLanguages = await _client
                 .From<ProgrammingLanguage>()
-                .Where(l => l.Name.ToLower() == language.ToLower())
-                .Single();
-
-            if (langResponse == null)
-                return new List<TestDto>();
-
-            var response = await _supabaseClient
-                .From<Test>()
-                .Where(t => t.LessonId == lessonId && t.LanguageId == langResponse.Id)
-                .Order(t => t.TestOrder, Constants.Ordering.Ascending)
                 .Get();
 
-            return response.Models?.Select(t => new TestDto
+            var language = allLanguages.Models?
+                .FirstOrDefault(l => l.Name.ToLower() == languageName.ToLower());
+
+            if (language == null)
+            {
+                Console.WriteLine("❌ Язык не найден");
+                return new List<TestDto>();
+            }
+
+            Console.WriteLine($"✅ Язык найден: {language.Name} (ID: {language.Id})");
+
+            var allTests = await _client
+                .From<Test>()
+                .Get();
+
+            var tests = allTests.Models?
+                .Where(t => t.LessonId == lessonId && t.LanguageId == language.Id)
+                .ToList() ?? new List<Test>();
+
+            Console.WriteLine($"📊 Найдено тестов: {tests.Count}");
+
+            if (tests.Count > 0)
+            {
+                Console.WriteLine($"✅ Первый тест: ожидается '{tests[0].ExpectedOutput}'");
+            }
+
+            return tests.Select(t => new TestDto
             {
                 Id = t.Id,
                 Input = t.Input ?? "",
@@ -172,11 +234,11 @@ public class CodeExecutionService
                 IsHidden = t.IsHidden,
                 TimeoutMs = t.TimeoutMs,
                 Weight = t.Weight
-            }).ToList() ?? new List<TestDto>();
+            }).ToList();
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error getting tests for lesson {LessonId}", lessonId);
+            Console.WriteLine($"❌ Ошибка: {ex.Message}");
             return new List<TestDto>();
         }
     }
@@ -217,7 +279,6 @@ public class CodeExecutionService
                 Code = dto.Code,
                 Status = result?.Success == true ? "success" : "failed",
                 Output = result?.Output,
-                Error = result?.Error,
                 ExecutionTimeMs = (int?)result?.ExecutionTimeMs,
                 CreatedAt = DateTime.UtcNow
             };
@@ -233,26 +294,26 @@ public class CodeExecutionService
     }
 
     private async Task<Submission> SaveSubmissionWithTestsAsync(
-        string userId,
-        string lessonId,
-        string language,
-        string code,
-        CodeExecutionResultDto result,
-        List<TestDto> tests)
+    string userId,
+    string lessonId,
+    string language,
+    string code,
+    CodeExecutionResultDto result,
+    List<TestDto> tests)
     {
         try
         {
             await _supabaseClient.InitializeAsync();
 
-            // Получаем ID языка
-            var langResponse = await _supabaseClient
+            var allLanguages = await _supabaseClient
                 .From<ProgrammingLanguage>()
-                .Where(l => l.Name.ToLower() == language.ToLower())
-                .Single();
+                .Get();
 
-            var languageId = langResponse?.Id ?? "11111111-1111-1111-1111-111111111111";
+            var languageObj = allLanguages.Models?
+                .FirstOrDefault(l => l.Name.ToLower() == language.ToLower());
 
-            // Создаем запись о попытке
+            var languageId = languageObj?.Id ?? "11111111-1111-1111-1111-111111111111";
+
             var submission = new Submission
             {
                 Id = Guid.NewGuid().ToString(),
@@ -262,7 +323,6 @@ public class CodeExecutionService
                 Code = code,
                 Status = result.Success ? "success" : "failed",
                 Output = result.Output,
-                Error = result.Error,
                 ExecutionTimeMs = (int?)result.ExecutionTimeMs,
                 MemoryKb = (int?)result.MemoryKb,
                 TestsPassed = result.PassedTests,
@@ -273,7 +333,6 @@ public class CodeExecutionService
 
             await _supabaseClient.From<Submission>().Insert(submission);
 
-            // Сохраняем результаты каждого теста
             if (result.TestResults != null)
             {
                 foreach (var testResult in result.TestResults)
@@ -315,34 +374,28 @@ public class CodeExecutionService
         {
             await _supabaseClient.InitializeAsync();
 
-            var response = await _supabaseClient
+            var allSubmissions = await _supabaseClient
                 .From<Submission>()
-                .Where(s => s.UserId == userId && s.LessonId == lessonId)
                 .Order(s => s.CreatedAt, Constants.Ordering.Descending)
-                .Limit(10)
                 .Get();
 
-            var submissions = response.Models?.ToList() ?? new List<Submission>();
-            var languageIds = submissions.Select(s => s.LanguageId).Distinct().ToList();
+            var submissions = allSubmissions.Models?
+                .Where(s => s.UserId == userId && s.LessonId == lessonId)
+                .Take(10)
+                .ToList() ?? new List<Submission>();
 
-            // Получаем названия языков
-            var languages = new Dictionary<string, string>();
-            foreach (var langId in languageIds)
-            {
-                var lang = await _supabaseClient
-                    .From<ProgrammingLanguage>()
-                    .Where(l => l.Id == langId)
-                    .Single();
+            var allLanguages = await _supabaseClient
+                .From<ProgrammingLanguage>()
+                .Get();
 
-                if (lang != null)
-                    languages[langId] = lang.Name;
-            }
+            var languageMap = allLanguages.Models?
+                .ToDictionary(l => l.Id, l => l.Name) ?? new Dictionary<string, string>();
 
             return submissions.Select(s => new SubmissionDto
             {
                 Id = s.Id,
                 LessonId = s.LessonId,
-                Language = languages.GetValueOrDefault(s.LanguageId, "unknown"),
+                Language = languageMap.GetValueOrDefault(s.LanguageId, "unknown"),
                 Status = s.Status,
                 Score = s.Score,
                 TestsPassed = s.TestsPassed,

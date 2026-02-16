@@ -1,71 +1,64 @@
-﻿using SkilllubLearnbox.DTOs;
+﻿using Microsoft.Extensions.Logging;
+using SkilllubLearnbox.DTOs;
 using SkilllubLearnbox.Models;
-using Microsoft.Extensions.Caching.Memory;
-using Microsoft.Extensions.Logging;
 using Supabase;
+using Supabase.Postgrest;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text.Json;
+using System.Threading.Tasks;
 
 namespace SkilllubLearnbox.Services;
+
 public class QuizService
 {
     private readonly ILogger<QuizService> _logger;
     private readonly Supabase.Client _client;
-    private readonly IMemoryCache _cache;
+    private readonly ProgressService _progressService;
 
-    public QuizService(ILogger<QuizService> logger, Supabase.Client client, IMemoryCache cache)
+    public QuizService(
+        ILogger<QuizService> logger,
+        Supabase.Client client,
+        ProgressService progressService)
     {
         _logger = logger;
         _client = client;
-        _cache = cache;
+        _progressService = progressService;
     }
 
-    public async Task<List<QuizQuestionDto>> GetQuizQuestionsByLessonAsync(string lessonId)
+    public async Task<(bool Success, List<QuizQuestionDto>? Questions, string? Error)> GetQuizQuestionsAsync(string lessonId)
     {
         try
         {
-            var cacheKey = $"quiz_questions_{lessonId}";
-
-            if (_cache.TryGetValue(cacheKey, out List<QuizQuestionDto> cachedQuestions))
-            {
-                _logger.LogInformation("Вопросы для урока {LessonId} загружены из кэша", lessonId);
-                return cachedQuestions;
-            }
-
-            _logger.LogInformation("Загрузка вопросов для урока {LessonId} из базы данных", lessonId);
             await _client.InitializeAsync();
 
-            var response = await _client.From<QuizQuestion>()
-                .Filter("lesson_id", Supabase.Postgrest.Constants.Operator.Equals, lessonId)
+            var response = await _client
+                .From<QuizQuestion>()
+                .Where(q => q.LessonId == lessonId)
                 .Get();
 
-            var questions = response.Models?.ToList() ?? new List<QuizQuestion>();
+            var questions = response.Models?
+                .Select(q => new QuizQuestionDto
+                {
+                    Id = q.Id,
+                    LessonId = q.LessonId,
+                    QuestionText = q.QuestionText,
+                    Option1 = q.Option1,
+                    Option2 = q.Option2,
+                    Option3 = q.Option3,
+                    Option4 = q.Option4,
+                    CorrectOption = q.CorrectOption,
+                    Explanation = q.Explanation ?? ""
+                })
+                .ToList() ?? new List<QuizQuestionDto>();
 
-            var questionDtos = questions.Select(q => new QuizQuestionDto
-            {
-                Id = q.Id,
-                LessonId = q.LessonId,
-                QuestionText = q.QuestionText,
-                Option1 = q.Option1,
-                Option2 = q.Option2,
-                Option3 = q.Option3,
-                Option4 = q.Option4,
-                CorrectOption = q.CorrectOption,
-                Explanation = q.Explanation
-            }).ToList();
-
-            _logger.LogInformation("Найдено вопросов для урока {LessonId}: {Count}", lessonId, questions.Count);
-
-            var cacheOptions = new MemoryCacheEntryOptions()
-                .SetAbsoluteExpiration(TimeSpan.FromMinutes(60));
-
-            _cache.Set(cacheKey, questionDtos, cacheOptions);
-            _logger.LogInformation("Вопросы для урока {LessonId} сохранены в кэш", lessonId);
-
-            return questionDtos;
+            return (true, questions, null);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Ошибка при получении вопросов для урока {LessonId}", lessonId);
-            return new List<QuizQuestionDto>();
+            _logger.LogError(ex, "Error getting quiz questions for lesson {LessonId}", lessonId);
+            return (false, null, ex.Message);
         }
     }
 
@@ -73,106 +66,113 @@ public class QuizService
     {
         try
         {
-            await _client.InitializeAsync();
+            _logger.LogInformation("📝 Submitting quiz for lesson {LessonId}, user {UserId}", lessonId, userId);
 
-            var questionsResponse = await _client.From<QuizQuestion>()
-                .Filter("lesson_id", Supabase.Postgrest.Constants.Operator.Equals, lessonId)
-                .Get();
+            var (success, questions, error) = await GetQuizQuestionsAsync(lessonId);
 
-            var questions = questionsResponse.Models?.ToList() ?? new List<QuizQuestion>();
-
-            if (!questions.Any())
+            if (!success || questions == null || questions.Count == 0)
             {
-                throw new Exception("Вопросы не найдены");
+                return new QuizResultDto
+                {
+                    Score = 0,
+                    TotalQuestions = 0,
+                    CorrectAnswers = 0,
+                    IsPassed = false,
+                    Message = "Вопросы не найдены",
+                    QuestionResults = new List<QuestionResultDto>()
+                };
             }
 
+            int correctCount = 0;
             var questionResults = new List<QuestionResultDto>();
-            int correctAnswers = 0;
 
-            foreach (var question in questions)
+            foreach (var answer in answers)
             {
-                var userAnswer = answers.FirstOrDefault(a => a.QuestionId == question.Id);
+                var question = questions.FirstOrDefault(q => q.Id == answer.QuestionId);
+                if (question == null) continue;
 
-                var isCorrect = userAnswer != null && userAnswer.UserAnswer == question.CorrectOption;
-
-                if (isCorrect) correctAnswers++;
+                bool isCorrect = question.CorrectOption == answer.UserAnswer;
+                if (isCorrect) correctCount++;
 
                 questionResults.Add(new QuestionResultDto
                 {
                     QuestionId = question.Id,
                     IsCorrect = isCorrect,
-                    UserAnswer = userAnswer?.UserAnswer ?? 0,
+                    UserAnswer = answer.UserAnswer,
                     CorrectAnswer = question.CorrectOption,
-                    Explanation = question.Explanation
+                    Explanation = question.Explanation ?? ""
                 });
             }
 
-            var score = (int)Math.Round((double)correctAnswers / questions.Count * 100);
-            var isPassed = score >= 70;
+            double score = (double)correctCount / questions.Count * 100;
+            bool isPassed = score >= 70;
 
-            await UpdateUserQuizProgressAsync(userId, lessonId, score, correctAnswers, questions.Count);
+            var quizAttempt = new QuizAttempt
+            {
+                Id = Guid.NewGuid().ToString(),
+                UserId = userId,
+                LessonId = lessonId,
+                Score = score,
+                IsPassed = isPassed,
+                Answers = JsonSerializer.Serialize(answers),
+                CreatedAt = DateTime.UtcNow
+            };
+
+            await _client.From<QuizAttempt>().Insert(quizAttempt);
+
+            if (isPassed)
+            {
+                _logger.LogInformation("✅ Quiz passed for lesson {LessonId}, marking practice as completed", lessonId);
+                await _progressService.MarkPracticeAsCompletedAsync(userId, lessonId, (int)score);
+            }
+            else
+            {
+                _logger.LogInformation("❌ Quiz failed for lesson {LessonId}: {Correct}/{Total} correct",
+                    lessonId, correctCount, questions.Count);
+            }
 
             return new QuizResultDto
             {
-                Score = score,
+                Score = (int)score,
                 TotalQuestions = questions.Count,
-                CorrectAnswers = correctAnswers,
-                QuestionResults = questionResults,
+                CorrectAnswers = correctCount,
                 IsPassed = isPassed,
-                Message = isPassed
-                    ? "Поздравляем! Вы успешно прошли тест."
-                    : "К сожалению, вы не прошли тест. Попробуйте еще раз."
+                QuestionResults = questionResults,
+                Message = isPassed ? "✅ Тест пройден!" : "❌ Тест не пройден. Попробуйте еще раз."
             };
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Ошибка при проверке ответов на вопросы урока {LessonId}", lessonId);
-            throw;
+            _logger.LogError(ex, "❌ Error submitting quiz");
+            return new QuizResultDto
+            {
+                Score = 0,
+                TotalQuestions = 0,
+                CorrectAnswers = 0,
+                IsPassed = false,
+                Message = $"Ошибка сервера: {ex.Message}",
+                QuestionResults = new List<QuestionResultDto>()
+            };
         }
     }
 
-    private async Task UpdateUserQuizProgressAsync(string userId, string lessonId, int score, int correctAnswers, int totalQuestions)
+    public async Task<bool> CheckIfLessonHasQuiz(string lessonId)
     {
         try
         {
             await _client.InitializeAsync();
 
-            var progressResponse = await _client.From<UserProgress>()
-                .Filter("user_id", Supabase.Postgrest.Constants.Operator.Equals, userId)
-                .Filter("lesson_id", Supabase.Postgrest.Constants.Operator.Equals, lessonId)
+            var response = await _client
+                .From<QuizQuestion>()
+                .Where(q => q.LessonId == lessonId)
                 .Get();
 
-            var userProgress = progressResponse.Models?.FirstOrDefault();
-
-            if (userProgress == null)
-            {
-                userProgress = new UserProgress
-                {
-                    Id = Guid.NewGuid().ToString(),
-                    UserId = userId,
-                    LessonId = lessonId,
-                    Completed = true,
-                    BestScore = score,
-                    AttemptsCount = 1,
-                    LastAttempt = DateTime.UtcNow
-                };
-                await _client.From<UserProgress>().Insert(userProgress);
-            }
-            else
-            {
-                userProgress.Completed = true;
-                userProgress.BestScore = Math.Max(userProgress.BestScore, score);
-                userProgress.AttemptsCount++;
-                userProgress.LastAttempt = DateTime.UtcNow;
-                await _client.From<UserProgress>().Update(userProgress);
-            }
-
-            _logger.LogInformation("Прогресс квиза обновлен для пользователя {UserId}, урок {LessonId}, результат: {Score}%",
-                userId, lessonId, score);
+            return response.Models?.Any() ?? false;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Ошибка при обновлении прогресса квиза");
+            _logger.LogError(ex, "Error checking if lesson has quiz");
+            return false;
         }
     }
 }

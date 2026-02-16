@@ -2,80 +2,76 @@
 using Microsoft.AspNetCore.Mvc;
 using SkilllubLearnbox.DTOs;
 using SkilllubLearnbox.Services;
+using System.Security.Claims;
 
 namespace SkilllubLearnbox.Controllers;
 
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/quiz")]
+[Authorize]
 public class QuizController : ControllerBase
 {
     private readonly ILogger<QuizController> _logger;
     private readonly QuizService _quizService;
-    private readonly ProgressService _progressService;
 
-    public QuizController(
-        ILogger<QuizController> logger,
-        QuizService quizService,
-        ProgressService progressService)
+    public QuizController(ILogger<QuizController> logger, QuizService quizService)
     {
         _logger = logger;
         _quizService = quizService;
-        _progressService = progressService;
     }
 
     [HttpGet("lessons/{lessonId}/questions")]
-    public async Task<IActionResult> GetLessonQuestions(string lessonId)
+    public async Task<IActionResult> GetQuizQuestions(string lessonId)
     {
         try
         {
-            _logger.LogInformation("Получение вопросов для урока: {LessonId}", lessonId);
-            var questions = await _quizService.GetQuizQuestionsByLessonAsync(lessonId);
+            var (success, questions, error) = await _quizService.GetQuizQuestionsAsync(lessonId);
 
-            return Ok(new
+            if (!success)
             {
-                success = true,
-                questions = questions,
-                count = questions.Count
-            });
+                return Ok(new { success = false, error = error });
+            }
+
+            return Ok(new { success = true, questions });
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Ошибка при получении вопросов для урока {LessonId}", lessonId);
-            return StatusCode(500, new { success = false, error = "Ошибка сервера" });
+            _logger.LogError(ex, "Error getting quiz questions");
+            return Ok(new { success = false, error = "Ошибка сервера" });
         }
     }
 
     [HttpPost("lessons/{lessonId}/submit")]
-    [Authorize]
-    public async Task<IActionResult> SubmitQuizAnswers(string lessonId, [FromBody] QuizSubmitDto submitDto)
+    public async Task<IActionResult> SubmitQuizAnswers(string lessonId, [FromBody] QuizSubmitDto dto)
     {
         try
         {
-            _logger.LogInformation("Отправка ответов на вопросы урока: {LessonId}", lessonId);
-
             var userId = User.FindFirst("userId")?.Value;
             if (string.IsNullOrEmpty(userId))
             {
                 return Unauthorized(new { success = false, error = "Пользователь не авторизован" });
             }
 
-            if (submitDto.LessonId != lessonId)
-            {
-                return BadRequest(new { success = false, error = "Несоответствие идентификаторов уроков" });
-            }
-
-            var result = await _quizService.SubmitQuizAnswersAsync(userId, lessonId, submitDto.Answers);
+            var result = await _quizService.SubmitQuizAnswersAsync(userId, lessonId, dto.Answers);
 
             return Ok(new
             {
                 success = true,
-                result = result
+                result = new
+                {
+                    result.Score,
+                    result.TotalQuestions,
+                    result.CorrectAnswers,
+                    result.IsPassed,
+                    result.Message,
+                    result.QuestionResults
+                }
             });
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Ошибка при отправке ответов на вопросы урока {LessonId}", lessonId);
-            return StatusCode(500, new { success = false, error = "Ошибка сервера" });
+            _logger.LogError(ex, "Error submitting quiz");
+            return Ok(new { success = false, error = "Ошибка сервера" });
         }
     }
 }

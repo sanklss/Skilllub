@@ -62,9 +62,12 @@ public class CourseService
             var response = await _client
                 .From<Course>()
                 .Where(x => x.Id == courseId && x.IsPublished == true)
-                .Single();
+                .Select("*")
+                .Get();
 
-            if (response == null)
+            var course = response.Models?.FirstOrDefault();
+
+            if (course == null)
             {
                 _logger.LogWarning("Курс {CourseId} не найден или не опубликован", courseId);
                 return null;
@@ -72,11 +75,11 @@ public class CourseService
 
             var courseDto = new CourseDto
             {
-                Id = response.Id,
-                Title = response.Title,
-                Description = response.Description,
-                DifficultyLevel = response.DifficultyLevel,
-                IsPublished = response.IsPublished
+                Id = course.Id,
+                Title = course.Title,
+                Description = course.Description,
+                DifficultyLevel = course.DifficultyLevel,
+                IsPublished = course.IsPublished
             };
 
             return courseDto;
@@ -255,20 +258,22 @@ public class CourseService
         {
             if (string.IsNullOrEmpty(lessonId))
             {
-                _logger.LogWarning("Пустой lessonId при получении урока");
+                _logger.LogWarning("⚠️ Пустой lessonId при получении урока");
                 return null;
             }
 
-            _logger.LogInformation("Загрузка урока {LessonId} из базы данных", lessonId);
+            _logger.LogInformation("📚 Загрузка урока {LessonId} из базы данных", lessonId);
 
-            var response = await _client
+            var allLessons = await _client
                 .From<Lesson>()
-                .Where(x => x.Id == lessonId)
-                .Single();
+                .Get();
 
-            if (response == null)
+            var lesson = allLessons.Models?
+                .FirstOrDefault(x => x.Id == lessonId);
+
+            if (lesson == null)
             {
-                _logger.LogWarning("Урок {LessonId} не найден", lessonId);
+                _logger.LogWarning("⚠️ Урок {LessonId} не найден", lessonId);
                 return null;
             }
 
@@ -276,62 +281,90 @@ public class CourseService
             {
                 try
                 {
-                    var isAccessible = await _progressService.IsModuleAccessibleAsync(userId, response.ModuleId);
+                    var isAccessible = await _progressService.IsModuleAccessibleAsync(userId, lesson.ModuleId);
                     if (!isAccessible)
                     {
-                        _logger.LogInformation("Урок {LessonId} недоступен для пользователя {UserId}", lessonId, userId);
+                        _logger.LogInformation("🔒 Урок {LessonId} недоступен для пользователя {UserId}", lessonId, userId);
                         return null;
                     }
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Ошибка проверки доступности урока {LessonId}", lessonId);
+                    _logger.LogError(ex, "❌ Ошибка проверки доступности урока {LessonId}", lessonId);
                 }
             }
 
             var lessonDto = new LessonDto
             {
-                Id = response.Id,
-                ModuleId = response.ModuleId,
-                Title = response.Title,
-                Description = response.Description,
-                Content = response.Content,
-                Order = response.LessonOrder,
-                Difficulty = response.Difficulty,
+                Id = lesson.Id,
+                ModuleId = lesson.ModuleId,
+                Title = lesson.Title,
+                Description = lesson.Description,
+                Content = lesson.Content,
+                Order = lesson.LessonOrder,
+                Difficulty = lesson.Difficulty,
                 IsCompleted = false,
-                HasQuiz = false
+                HasQuiz = false,
+                HasCodeExercise = false,
+                IsTheoryCompleted = false,
+                IsPracticeCompleted = false
             };
+
+            try
+            {
+                var allQuizQuestions = await _client
+                    .From<QuizQuestion>()
+                    .Get();
+
+                lessonDto.HasQuiz = allQuizQuestions.Models?
+                    .Any(q => q.LessonId == lessonId) ?? false;
+            }
+            catch { }
+
+            try
+            {
+                var allLanguages = await _client
+                    .From<ProgrammingLanguage>()
+                    .Get();
+
+                var pythonLang = allLanguages.Models?
+                    .FirstOrDefault(l => l.Name.ToLower() == "python");
+
+                if (pythonLang != null)
+                {
+                    var allCodeTemplates = await _client
+                        .From<CodeTemplate>()
+                        .Get();
+
+                    lessonDto.HasCodeExercise = allCodeTemplates.Models?
+                        .Any(ct => ct.LessonId == lessonId && ct.LanguageId == pythonLang.Id) ?? false;
+                }
+            }
+            catch { }
 
             if (!string.IsNullOrEmpty(userId))
             {
                 try
                 {
-                    var progress = await _client
-                        .From<UserProgress>()
-                        .Where(x => x.UserId == userId && x.LessonId == lessonId && x.Completed == true)
-                        .Single();
-
-                    lessonDto.IsCompleted = progress != null;
+                    var progress = await _progressService.GetUserProgressAsync(userId, lessonId);
+                    if (progress != null)
+                    {
+                        lessonDto.IsTheoryCompleted = progress.TheoryCompleted;
+                        lessonDto.IsPracticeCompleted = progress.PracticeCompleted;
+                        lessonDto.IsCompleted = progress.Completed;
+                    }
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "❌ Ошибка при загрузке прогресса урока {LessonId}", lessonId);
+                }
             }
-
-            try
-            {
-                var quiz = await _client
-                    .From<QuizQuestion>()
-                    .Where(x => x.LessonId == lessonId)
-                    .Single();
-
-                lessonDto.HasQuiz = quiz != null;
-            }
-            catch { }
 
             return lessonDto;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Ошибка при получении урока {LessonId}", lessonId);
+            _logger.LogError(ex, "❌ Ошибка при получении урока {LessonId}", lessonId);
             return null;
         }
     }
@@ -353,9 +386,12 @@ public class CourseService
             _logger.LogInformation("Загрузка шаблона кода для урока {LessonId} из базы данных", lessonId);
             await _client.InitializeAsync();
 
-            var response = await _client.From<CodeTemplate>().Get();
-            var template = response.Models?
-                .FirstOrDefault(t => t.LessonId == lessonId && t.LanguageId == languageId);
+            var response = await _client
+                .From<CodeTemplate>()
+                .Where(x => x.LessonId == lessonId && x.LanguageId == languageId)
+                .Get();
+
+            var template = response.Models?.FirstOrDefault();
 
             if (template == null) return null;
 

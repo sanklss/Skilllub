@@ -19,6 +19,12 @@ public class UserProgress : BaseModel
     [Column("completed")]
     public bool Completed { get; set; } = false;
 
+    [Column("theory_completed")]
+    public bool TheoryCompleted { get; set; } = false;
+
+    [Column("practice_completed")]
+    public bool PracticeCompleted { get; set; } = false;
+
     [Column("best_score")]
     public int BestScore { get; set; } = 0;
 

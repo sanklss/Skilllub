@@ -31,9 +31,6 @@ public class Submission : BaseModel
     [Column("output")]
     public string? Output { get; set; }
 
-    [Column("error")]
-    public string? Error { get; set; }
-
     [Column("execution_time_ms")]
     public int? ExecutionTimeMs { get; set; }
 

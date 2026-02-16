@@ -239,4 +239,54 @@ public class ProgressController : ControllerBase
             return Problem("Ошибка сервера");
         }
     }
+
+    [HttpPost("lesson/{lessonId}/mark-theory-read")]
+    [Authorize]
+    public async Task<IActionResult> MarkTheoryAsRead(string lessonId)
+    {
+        try
+        {
+            var userId = User.FindFirst("userId")?.Value;
+            if (string.IsNullOrEmpty(userId))
+                return Unauthorized(new { success = false, error = "Пользователь не авторизован" });
+
+            await _progressService.MarkTheoryAsCompletedAsync(userId, lessonId);
+
+            return Ok(new
+            {
+                success = true,
+                message = "Теория отмечена как прочитанная"
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "❌ Ошибка при отметке теории");
+            return Problem("Ошибка сервера");
+        }
+    }
+
+    [HttpGet("lesson/{lessonId}/detailed-status")]
+    [Authorize]
+    public async Task<IActionResult> GetLessonDetailedStatus(string lessonId)
+    {
+        try
+        {
+            var userId = User.FindFirst("userId")?.Value;
+            if (string.IsNullOrEmpty(userId))
+                return Unauthorized(new { success = false, error = "Пользователь не авторизован" });
+
+            var status = await _progressService.GetLessonStatusAsync(userId, lessonId);
+
+            return Ok(new
+            {
+                success = true,
+                status
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "❌ Ошибка при получении статуса урока");
+            return Problem("Ошибка сервера");
+        }
+    }
 }
