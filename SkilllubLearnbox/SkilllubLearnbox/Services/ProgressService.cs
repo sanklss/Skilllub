@@ -85,6 +85,23 @@ public class ProgressService
                 .Order(s => s.CreatedAt, Constants.Ordering.Descending)
                 .Get();
 
+            if (submissions.Models != null && submissions.Models.Any())
+            {
+                _logger.LogWarning("🔍 Найдено {Count} submissions для урока {LessonId}",
+                    submissions.Models.Count, lessonId);
+
+                foreach (var sub in submissions.Models)
+                {
+                    _logger.LogWarning("   - Submission ID: {Id}, Tests: {Passed}/{Total}, Created: {CreatedAt}",
+                        sub.Id, sub.TestsPassed, sub.TestsTotal, sub.CreatedAt);
+                }
+            }
+            else
+            {
+                _logger.LogWarning("❌ Нет submissions для урока {LessonId}", lessonId);
+                return false;
+            }
+
             var successfulSubmission = submissions.Models?
                 .FirstOrDefault(s => s.TestsPassed == s.TestsTotal && s.TestsTotal > 0);
 
@@ -339,7 +356,14 @@ public class ProgressService
         try
         {
             var progress = await GetUserProgressAsync(userId, lessonId);
-            return progress?.Completed ?? false;
+            if (progress == null) return false;
+
+            var (hasQuiz, hasCodeExercise) = await GetLessonRequirementsAsync(lessonId);
+            bool theoryDone = progress.TheoryCompleted;
+            bool quizDone = !hasQuiz || progress.QuizCompleted;
+            bool codeDone = !hasCodeExercise || progress.CodeCompleted;
+
+            return theoryDone && quizDone && codeDone;
         }
         catch (Exception ex)
         {
@@ -631,6 +655,9 @@ public class ProgressService
             if (string.IsNullOrEmpty(userId) || string.IsNullOrEmpty(courseId))
                 return;
 
+            _logger.LogInformation("📊 Обновление прогресса курса {CourseId} для пользователя {UserId}",
+                courseId, userId);
+
             await _client.InitializeAsync();
 
             var modulesResponse = await _client
@@ -639,17 +666,33 @@ public class ProgressService
                 .Get();
 
             var courseModules = modulesResponse?.Models?.ToList() ?? new List<Module>();
-            if (!courseModules.Any()) return;
+            if (!courseModules.Any())
+            {
+                _logger.LogWarning("⚠️ Нет модулей для курса {CourseId}", courseId);
+                return;
+            }
 
             var moduleIds = courseModules.Select(m => m.Id).ToList();
 
-            var lessonsResponse = await _client
+            _logger.LogDebug("Найдено модулей: {Count}", moduleIds.Count);
+
+            var allLessonsResponse = await _client
                 .From<Lesson>()
-                .Where(l => moduleIds.Contains(l.ModuleId))
                 .Get();
 
-            var courseLessons = lessonsResponse?.Models?.ToList() ?? new List<Lesson>();
-            if (!courseLessons.Any()) return;
+            var allLessons = allLessonsResponse?.Models?.ToList() ?? new List<Lesson>();
+
+            var courseLessons = allLessons
+                .Where(l => l.ModuleId != null && moduleIds.Contains(l.ModuleId))
+                .ToList();
+
+            _logger.LogDebug("Найдено уроков в курсе: {Count}", courseLessons.Count);
+
+            if (!courseLessons.Any())
+            {
+                _logger.LogWarning("⚠️ Нет уроков для курса {CourseId}", courseId);
+                return;
+            }
 
             var userProgressResponse = await _client
                 .From<UserProgress>()
@@ -661,8 +704,13 @@ public class ProgressService
                 .Select(up => up.LessonId)
                 .ToHashSet() ?? new HashSet<string>();
 
+            _logger.LogDebug("Всего завершенных уроков пользователя: {Count}", completedLessonIds.Count);
+
             var courseLessonIds = courseLessons.Select(l => l.Id).ToHashSet();
             var completedInThisCourse = completedLessonIds.Intersect(courseLessonIds).Count();
+
+            _logger.LogDebug("Завершенных уроков в этом курсе: {Completed}/{Total}",
+                completedInThisCourse, courseLessons.Count);
 
             var progress = courseLessons.Count > 0
                 ? (int)Math.Round((double)completedInThisCourse / courseLessons.Count * 100)
@@ -677,17 +725,31 @@ public class ProgressService
 
             if (userCourse != null)
             {
+                var oldProgress = userCourse.Progress;
                 userCourse.Progress = progress;
                 userCourse.Completed = progress >= 100;
                 userCourse.LastAccessed = DateTime.UtcNow;
 
                 await _client.From<UserCourse>().Update(userCourse);
-                _logger.LogInformation("📊 Прогресс курса {CourseId}: {Progress}%", courseId, progress);
+
+                _logger.LogInformation("📊 Прогресс курса {CourseId} обновлен: {OldProgress}% -> {NewProgress}%",
+                    courseId, oldProgress, progress);
+
+                if (progress >= 100 && !userCourse.Completed)
+                {
+                    _logger.LogInformation("🎉 Курс {CourseId} полностью завершен!", courseId);
+                }
+            }
+            else
+            {
+                _logger.LogWarning("⚠️ Пользователь {UserId} не записан на курс {CourseId}",
+                    userId, courseId);
             }
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "❌ Ошибка при обновлении прогресса курса");
+            _logger.LogError(ex, "❌ Ошибка при обновлении прогресса курса {CourseId} для пользователя {UserId}",
+                courseId, userId);
         }
     }
 
@@ -773,12 +835,56 @@ public class ProgressService
             if (string.IsNullOrEmpty(userId) || string.IsNullOrEmpty(moduleId))
                 return;
 
+            _logger.LogWarning("🔍 ПРОВЕРКА МОДУЛЯ {ModuleId} для пользователя {UserId}", moduleId, userId);
+
             var isCompleted = await CheckModuleCompletionByLessonsAsync(userId, moduleId);
+
+            _logger.LogWarning("📊 РЕЗУЛЬТАТ: модуль завершен = {IsCompleted}", isCompleted);
 
             if (isCompleted)
             {
-                _logger.LogInformation("✅ Модуль {ModuleId} может быть завершен", moduleId);
+                _logger.LogWarning("✅ МОДУЛЬ {ModuleId} ЗАВЕРШЕН! СОЗДАЕМ ЗАПИСЬ...", moduleId);
                 await CreateModuleCompletionRecord(userId, moduleId);
+            }
+            else
+            {
+                _logger.LogWarning("⏳ Модуль {ModuleId} еще не завершен", moduleId);
+
+                var existingResponse = await _client
+                    .From<UserModuleProgress>()
+                    .Where(x => x.UserId == userId && x.ModuleId == moduleId)
+                    .Get();
+
+                var existing = existingResponse?.Models?.FirstOrDefault();
+
+                if (existing == null)
+                {
+                    _logger.LogWarning("⚠️ ЗАПИСИ НЕТ! Создаем запись для незавершенного модуля {ModuleId}", moduleId);
+
+                    var moduleResponse = await _client
+                        .From<Module>()
+                        .Where(m => m.Id == moduleId)
+                        .Get();
+
+                    var module = moduleResponse?.Models?.FirstOrDefault();
+
+                    if (module != null)
+                    {
+                        var progress = new UserModuleProgress
+                        {
+                            Id = Guid.NewGuid().ToString(),
+                            UserId = userId,
+                            ModuleId = moduleId,
+                            CourseId = module.CourseId ?? "",
+                            IsCompleted = false,
+                            CompletedAt = null,
+                            CreatedAt = DateTime.UtcNow
+                        };
+
+                        await _client.From<UserModuleProgress>().Insert(progress);
+                        _logger.LogWarning("✅ ЗАПИСЬ СОЗДАНА для незавершенного модуля {ModuleId}", moduleId);
+                    }
+                }
             }
         }
         catch (Exception ex)
@@ -843,7 +949,6 @@ public class ProgressService
         try
         {
             await _client.InitializeAsync();
-
             var lessonsResponse = await _client
                 .From<Lesson>()
                 .Where(l => l.ModuleId == moduleId)
@@ -854,23 +959,51 @@ public class ProgressService
             if (!moduleLessons.Any())
                 return false;
 
-            var userProgressResponse = await _client
+            var allProgressResponse = await _client
                 .From<UserProgress>()
-                .Where(up => up.UserId == userId && up.Completed == true)
+                .Where(up => up.UserId == userId)
                 .Get();
 
-            var completedLessonIds = userProgressResponse?.Models?
-                .Where(up => !string.IsNullOrEmpty(up.LessonId))
-                .Select(up => up.LessonId)
-                .ToHashSet() ?? new HashSet<string>();
+            var allUserProgress = allProgressResponse?.Models?.ToList() ?? new List<UserProgress>();
 
-            var moduleLessonIds = moduleLessons.Select(l => l.Id).ToHashSet();
-            var completedInThisModule = completedLessonIds.Intersect(moduleLessonIds).Count();
+            var progressDict = allUserProgress.ToDictionary(p => p.LessonId, p => p);
 
-            _logger.LogInformation("Модуль {ModuleId}: завершено {Completed}/{Total} уроков",
-                moduleId, completedInThisModule, moduleLessons.Count);
+            int fullyCompletedCount = 0;
 
-            return completedInThisModule >= moduleLessons.Count;
+            foreach (var lesson in moduleLessons)
+            {
+                var (hasQuiz, hasCodeExercise) = await GetLessonRequirementsAsync(lesson.Id);
+
+                progressDict.TryGetValue(lesson.Id, out var progress);
+
+                if (progress == null)
+                {
+                    _logger.LogDebug("Урок {LessonId} еще не начат", lesson.Id);
+                    continue;
+                }
+
+                bool theoryDone = progress.TheoryCompleted;
+                bool quizDone = !hasQuiz || progress.QuizCompleted;
+                bool codeDone = !hasCodeExercise || progress.CodeCompleted;
+
+                bool isFullyCompleted = theoryDone && quizDone && codeDone;
+
+                if (isFullyCompleted)
+                {
+                    fullyCompletedCount++;
+                    _logger.LogDebug("Урок {LessonId} ПОЛНОСТЬЮ завершен", lesson.Id);
+                }
+                else
+                {
+                    _logger.LogDebug("Урок {LessonId} НЕ полностью завершен: теория={Theory}, квиз={Quiz}, код={Code}",
+                        lesson.Id, theoryDone, quizDone, codeDone);
+                }
+            }
+
+            _logger.LogInformation("Модуль {ModuleId}: полностью завершено {Completed}/{Total} уроков",
+                moduleId, fullyCompletedCount, moduleLessons.Count);
+
+            return fullyCompletedCount >= moduleLessons.Count;
         }
         catch (Exception ex)
         {
@@ -988,10 +1121,24 @@ public class ProgressService
     {
         try
         {
+            Console.WriteLine("");
+            Console.WriteLine("===========================================");
+            Console.WriteLine("🔍 ИНИЦИАЛИЗАЦИЯ ПРОГРЕССА МОДУЛЕЙ");
+            Console.WriteLine($"📌 Время: {DateTime.Now:HH:mm:ss}");
+            Console.WriteLine($"👤 UserId: {userId}");
+            Console.WriteLine($"📚 CourseId: {courseId}");
+            Console.WriteLine("===========================================");
+
             if (string.IsNullOrEmpty(userId) || string.IsNullOrEmpty(courseId))
+            {
+                Console.WriteLine("❌ ОШИБКА: userId или courseId пустые!");
                 return;
+            }
 
             await _client.InitializeAsync();
+            Console.WriteLine("✅ Подключение к Supabase установлено");
+
+            Console.WriteLine($"📡 Запрашиваем модули для курса {courseId}...");
 
             var modulesResponse = await _client
                 .From<Module>()
@@ -1001,33 +1148,109 @@ public class ProgressService
 
             var modules = modulesResponse?.Models?.ToList() ?? new List<Module>();
 
+            Console.WriteLine($"📊 Найдено модулей: {modules.Count}");
+
+            if (!modules.Any())
+            {
+                Console.WriteLine($"⚠️ ПРЕДУПРЕЖДЕНИЕ: Нет модулей для курса {courseId}!");
+                return;
+            }
+
+            Console.WriteLine("📋 Список модулей:");
             foreach (var module in modules)
             {
+                Console.WriteLine($"   - {module.Id} | {module.Title} (порядок: {module.ModuleOrder})");
+            }
+
+            int created = 0;
+            int skipped = 0;
+
+            foreach (var module in modules)
+            {
+                Console.WriteLine($"\n🔍 Проверяем модуль: {module.Id}");
+
                 var existingResponse = await _client
                     .From<UserModuleProgress>()
                     .Where(x => x.UserId == userId && x.ModuleId == module.Id)
                     .Get();
 
-                if (existingResponse?.Models?.FirstOrDefault() == null)
+                var existing = existingResponse?.Models?.FirstOrDefault();
+
+                if (existing == null)
                 {
+                    Console.WriteLine($"   ➕ Создаем новую запись для модуля {module.Id}");
+
                     var progress = new UserModuleProgress
                     {
                         Id = Guid.NewGuid().ToString(),
                         UserId = userId,
                         ModuleId = module.Id,
-                        CourseId = module.CourseId ?? "",
+                        CourseId = module.CourseId ?? courseId,
                         IsCompleted = false,
-                        CompletedAt = null
+                        CompletedAt = null,
+                        CreatedAt = DateTime.UtcNow
                     };
 
-                    await _client.From<UserModuleProgress>().Insert(progress);
-                    _logger.LogInformation("📝 Инициализирован прогресс модуля {ModuleId}", module.Id);
+                    try
+                    {
+                        var insertResult = await _client.From<UserModuleProgress>().Insert(progress);
+
+                        if (insertResult != null)
+                        {
+                            created++;
+                            Console.WriteLine($"   ✅ УСПЕШНО! Запись создана с ID: {progress.Id}");
+                        }
+                        else
+                        {
+                            Console.WriteLine($"   ❌ ОШИБКА! Insert вернул null");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"   ❌ ИСКЛЮЧЕНИЕ при вставке: {ex.Message}");
+                    }
+                }
+                else
+                {
+                    skipped++;
+                    Console.WriteLine($"   ⏭️ Запись уже существует (ID: {existing.Id}, completed: {existing.IsCompleted})");
                 }
             }
+
+            Console.WriteLine("\n===========================================");
+            Console.WriteLine($"📊 ИТОГИ:");
+            Console.WriteLine($"   ✅ Создано новых записей: {created}");
+            Console.WriteLine($"   ⏭️ Пропущено (уже были): {skipped}");
+            Console.WriteLine($"   📦 Всего модулей: {modules.Count}");
+
+            var verifyResponse = await _client
+                .From<UserModuleProgress>()
+                .Where(x => x.UserId == userId && x.CourseId == courseId)
+                .Get();
+
+            var verifyCount = verifyResponse?.Models?.Count ?? 0;
+            Console.WriteLine($"\n🔍 ПРОВЕРКА В БД:");
+            Console.WriteLine($"   📊 Записей в user_module_progress для курса: {verifyCount}");
+
+            if (verifyCount > 0)
+            {
+                Console.WriteLine("   📋 Список созданных записей:");
+                foreach (var record in verifyResponse.Models)
+                {
+                    Console.WriteLine($"      - Модуль: {record.ModuleId}, завершен: {record.IsCompleted}");
+                }
+            }
+            else
+            {
+                Console.WriteLine("   ❌ ВНИМАНИЕ! В таблице user_module_progress НЕТ записей!");
+            }
+
+            Console.WriteLine("===========================================\n");
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "❌ Ошибка при инициализации прогресса модулей");
+            Console.WriteLine($"❌❌❌ КРИТИЧЕСКАЯ ОШИБКА: {ex.Message}");
+            Console.WriteLine($"Stack trace: {ex.StackTrace}");
         }
     }
 }
