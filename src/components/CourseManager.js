@@ -1067,29 +1067,45 @@ async completeLessonAutomatically(lessonId) {
     }
 
     async updateCourseProgressInUI(courseId) {
-        try {
-            if (!this.userId) return;
+    try {
+        if (!this.userId) return;
+        
+        console.log('🔄 Обновление прогресса для курса:', courseId);
+        
+        const enrollmentResult = await this.api.checkEnrollment(courseId);
+        
+        if (enrollmentResult.success && enrollmentResult.isEnrolled) {
+            this.courseProgress = enrollmentResult.progress || 0;
+            console.log('Прогресс обновлен:', this.courseProgress);
+                        const sidebarProgressBar = document.querySelector('.course-sidebar .progress-fill');
+            const sidebarProgressText = document.querySelector('.course-sidebar .progress-text');
             
-            const enrollmentResult = await this.api.checkEnrollment(courseId);
-            if (enrollmentResult.success && enrollmentResult.isEnrolled) {
-                this.courseProgress = enrollmentResult.progress || 0;
-                
-                const progressBar = document.querySelector('.progress-bar-large .progress-fill');
-                const progressText = document.querySelector('.course-progress-display h3');
-                
-                if (progressBar) {
-                    progressBar.style.width = `${this.courseProgress}%`;
-                }
-                if (progressText) {
-                    progressText.textContent = `Ваш прогресс: ${this.courseProgress}%`;
-                }
-                
-                console.log(`Прогресс курса обновлен: ${this.courseProgress}%`);
+            if (sidebarProgressBar) {
+                sidebarProgressBar.style.width = `${this.courseProgress}%`;
+                console.log('Сайдбар прогресс обновлен');
             }
-        } catch (error) {
-            console.error('Error updating course progress:', error);
+            
+            if (sidebarProgressText) {
+                sidebarProgressText.textContent = `${this.courseProgress}%`;
+            }
+            
+            const largeProgressBar = document.querySelector('.progress-bar-large .progress-fill');
+            const largeProgressText = document.querySelector('.course-progress-display h3');
+            
+            if (largeProgressBar) {
+                largeProgressBar.style.width = `${this.courseProgress}%`;
+            }
+            
+            if (largeProgressText) {
+                largeProgressText.textContent = `Ваш прогресс: ${this.courseProgress}%`;
+            }
+            
+            console.log(`📊 Прогресс отображен: ${this.courseProgress}%`);
         }
+    } catch (error) {
+        console.error('❌ Ошибка:', error);
     }
+}
 
     handleQuizCompleted(lessonId, isSuccess) {
         if (isSuccess) {
