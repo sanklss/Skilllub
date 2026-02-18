@@ -452,4 +452,12 @@ async runCodeTests(lessonId, code, language, input = '') {
         return { success: false, error: error.message };
     }
 }
+async getCodeTemplate(lessonId, languageId, userId = null) {
+    const url = userId 
+        ? `/courses/lessons/${lessonId}/code-template/${languageId}?userId=${userId}`
+        : `/courses/lessons/${lessonId}/code-template/${languageId}`;
+    
+    const response = await this.request(url);
+    return response.json();
+}
 }

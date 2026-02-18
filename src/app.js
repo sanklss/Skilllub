@@ -25,19 +25,21 @@ class LearnBoxApp {
             this.uiManager
         );
         
-        this.quizManager = new QuizManager(
-        this.apiService,
-        this.uiManager,
-        this.authManager,
-        this.courseManager
-    );
-        
         this.courseManager = new CourseManager(
             this.apiService,
             this.uiManager,
-            this.quizManager,
+            null, 
             this.authManager
         );
+        
+        this.quizManager = new QuizManager(
+            this.apiService,
+            this.uiManager,
+            this.authManager,
+            this.courseManager
+        );
+        
+        this.courseManager.quizManager = this.quizManager;
 
         this.adminManager = new AdminManager(
             this.apiService,
@@ -56,6 +58,7 @@ class LearnBoxApp {
         );
         
         window.app = this;
+        window.app.api = this.apiService; 
     }
 
     async initialize() {
