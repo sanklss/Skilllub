@@ -375,17 +375,28 @@ export class ApiService {
     });
     return response.json();
 }
-async runCode(code, language) {
+async runCode(code, language, input = '') {
+    console.log('🔵 runCode - отправляю запрос:', {
+        code: code.substring(0, 50) + '...',
+        language,
+        input: JSON.stringify(input),
+        inputLength: input.length
+    });
+    
     const response = await this.request('/code/execute', {
         method: 'POST',
         body: JSON.stringify({
             code: code,
             language: language,
             lessonId: window.app?.courseManager?.currentLesson?.id || '',
-            languageId: language === 'python' ? '11111111-1111-1111-1111-111111111111' : ''
+            languageId: language === 'python' ? '11111111-1111-1111-1111-111111111111' : '',
+            stdin: input
         })
     });
-    return response.json();
+    
+    const data = await response.json();
+    console.log('🔵 runCode - ответ:', data);
+    return data;
 }
 async markTheoryAsRead(lessonId) {
         try {
@@ -418,17 +429,18 @@ async markTheoryAsRead(lessonId) {
             return { success: false, completed: false };
         }
     }
-    
-async runCodeTests(lessonId, code, language) {
+
+async runCodeTests(lessonId, code, language, input = '') {
     try {
-        console.log('Calling runCodeTests API:', { lessonId, language });
+        console.log('Calling runCodeTests API:', { lessonId, language, inputLength: input.length });
         
         const response = await this.request('/code/lessons/' + lessonId + '/run-tests', {
             method: 'POST',
             body: JSON.stringify({
                 code: code,
                 language: language,
-                languageId: language === 'python' ? '11111111-1111-1111-1111-111111111111' : ''
+                languageId: language === 'python' ? '11111111-1111-1111-1111-111111111111' : '',
+                stdin: input  
             })
         });
         
