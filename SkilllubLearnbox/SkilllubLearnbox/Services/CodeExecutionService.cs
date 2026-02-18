@@ -48,7 +48,8 @@ public class CodeExecutionService
                 time_limit = dto.TimeLimit ?? 5,
                 memory_limit_mb = 256
             };
-
+            _logger.LogWarning("🔥 Sending to Docker - stdin: '{Stdin}'", dto.Stdin);
+            _logger.LogWarning("🔥 stdin length: {Length}", dto.Stdin?.Length ?? 0);
             var response = await _httpClient.PostAsJsonAsync($"{_compilerUrl}/execute", request);
 
             var responseBody = await response.Content.ReadAsStringAsync();
@@ -86,7 +87,7 @@ public class CodeExecutionService
         }
     }
 
-    public async Task<CodeExecutionResultDto> RunCodeTestsAsync(string lessonId, string code, string language, string userId)
+    public async Task<CodeExecutionResultDto> RunCodeTestsAsync(string lessonId, string code, string language, string userId, string stdin = "")
     {
         try
         {
@@ -94,88 +95,107 @@ public class CodeExecutionService
 
             var tests = await GetTestsForLessonAsync(lessonId, language);
 
-            if (tests.Count == 0)
+            var passedTestIds = await GetPassedTestIdsAsync(userId, lessonId);
+
+            var nextTest = tests.FirstOrDefault(t => !passedTestIds.Contains(t.Id));
+
+            if (nextTest == null)
             {
-                _logger.LogWarning("⚠️ No tests found for lesson {LessonId}", lessonId);
                 return new CodeExecutionResultDto
                 {
                     Success = true,
-                    Output = "Для этого урока нет автоматических тестов",
-                    PassedTests = 0,
-                    TotalTests = 0,
-                    Score = 0
+                    Output = "Все тесты уже пройдены!",
+                    PassedTests = tests.Count,
+                    TotalTests = tests.Count,
+                    Score = 100,
+                    TestResults = tests.Select((t, i) => new TestResultDto
+                    {
+                        TestId = i,
+                        Passed = true,
+                        Input = t.Input,
+                        ExpectedOutput = t.ExpectedOutput,
+                        ActualOutput = "✅",
+                        IsHidden = t.IsHidden,
+                        Weight = t.Weight
+                    }).ToList()
                 };
             }
+
+            string processedStdin = stdin?.Replace("\\n", "\n") ?? "";
+
             var request = new
             {
                 code = code,
                 language = language,
-                stdin = "",
-                timeout = 5
+                stdin = processedStdin,
+                timeout = nextTest.TimeoutMs / 1000
             };
 
             var response = await _httpClient.PostAsJsonAsync($"{_compilerUrl}/execute", request);
             var result = await response.Content.ReadFromJsonAsync<CodeExecutionResultDto>();
 
-            if (result != null)
+            bool passed = false;
+            if (result?.Success == true)
             {
-                result.TotalTests = tests.Count;
+                string normalizedExpected = nextTest.ExpectedOutput.Replace("\r\n", "\n").Replace("\r", "\n").Trim();
+                string normalizedActual = (result.Output ?? "").Replace("\r\n", "\n").Replace("\r", "\n").Trim();
 
-                var testResults = new List<TestResultDto>();
-                int passedCount = 0;
-
-                foreach (var test in tests)
+                if (lessonId == "10000001-0000-0000-0000-000000000021")
                 {
-                    bool passed = false;
-
-                    if (string.IsNullOrEmpty(test.Input))
-                    {
-                        passed = (result.Output ?? "").TrimEnd() == test.ExpectedOutput.TrimEnd();
-                    }
-                    else
-                    {
-                        passed = false;
-                    }
-
-                    testResults.Add(new TestResultDto
-                    {
-                        TestId = testResults.Count,
-                        Passed = passed,
-                        Input = test.Input,
-                        ExpectedOutput = test.ExpectedOutput,
-                        ActualOutput = result.Output ?? "",
-                        ExecutionTimeMs = result.ExecutionTimeMs,
-                        IsHidden = test.IsHidden,
-                        Weight = test.Weight
-                    });
-
-                    if (passed) passedCount++;
-                }
-
-                result.TestResults = testResults;
-                result.PassedTests = passedCount;
-                result.Score = passedCount * 100 / tests.Count;
-
-                if (passedCount == tests.Count)
-                {
-                    result.Output = $"Все тесты пройдены! ({passedCount}/{tests.Count})";
+                    passed = normalizedActual.Contains("Угадал") || normalizedActual.Contains("угадал");
                 }
                 else
                 {
-                    result.Output = $"Пройдено {passedCount} из {tests.Count} тестов";
-                }
-
-                var submission = await SaveSubmissionWithTestsAsync(
-                    userId, lessonId, language, code, result, tests);
-
-                if (result.PassedTests == result.TotalTests && result.TotalTests > 0)
-                {
-                    _logger.LogInformation("All tests passed for lesson {LessonId}, marking practice as completed", lessonId);
-                    await _progressService.MarkPracticeAsCompletedAsync(userId, lessonId, result.Score ?? 100);
+                    passed = normalizedActual == normalizedExpected;
                 }
             }
 
-            return result ?? new CodeExecutionResultDto { Success = false, Error = "Пустой ответ от компилятора" };
+            var testResults = new List<TestResultDto>();
+            int currentTestIndex = tests.FindIndex(t => t.Id == nextTest.Id);
+
+            for (int i = 0; i < tests.Count; i++)
+            {
+                var test = tests[i];
+                bool isPassed = passedTestIds.Contains(test.Id) || (i == currentTestIndex && passed);
+
+                testResults.Add(new TestResultDto
+                {
+                    TestId = i,
+                    Passed = isPassed,
+                    Input = test.Input,
+                    ExpectedOutput = test.ExpectedOutput,
+                    ActualOutput = isPassed ? "✅" : (i == currentTestIndex ? result?.Output ?? "" : "⏳"),
+                    ExecutionTimeMs = i == currentTestIndex ? result?.ExecutionTimeMs ?? 0 : 0,
+                    IsHidden = test.IsHidden,
+                    Weight = test.Weight
+                });
+            }
+
+            int passedCount = testResults.Count(tr => tr.Passed);
+            int totalTests = tests.Count;
+            int score = totalTests > 0 ? (passedCount * 100 / totalTests) : 0;
+
+            var finalResult = new CodeExecutionResultDto
+            {
+                Success = passed,
+                TestResults = testResults,
+                PassedTests = passedCount,
+                TotalTests = totalTests,
+                Score = score,
+                Output = passed ?
+                    $"✅ Тест {currentTestIndex + 1} пройден! Осталось {tests.Count - passedCount} тестов." :
+                    $"❌ Тест {currentTestIndex + 1} не пройден. Попробуйте еще раз."
+            };
+
+            var submission = await SaveSubmissionWithTestsAsync(userId, lessonId, language, code, finalResult, tests);
+
+            if (passedCount == totalTests)
+            {
+                _logger.LogInformation("All tests passed for lesson {LessonId}, marking code as completed", lessonId);
+                await _progressService.MarkCodeAsCompletedAsync(userId, lessonId, score);
+            }
+
+            return finalResult;
         }
         catch (Exception ex)
         {
@@ -187,7 +207,48 @@ public class CodeExecutionService
             };
         }
     }
+    private async Task<HashSet<string>> GetPassedTestIdsAsync(string userId, string lessonId)
+    {
+        try
+        {
+            await _supabaseClient.InitializeAsync();
 
+            var submissions = await _supabaseClient
+                .From<Submission>()
+                .Where(s => s.UserId == userId && s.LessonId == lessonId)
+                .Select("id")
+                .Get();
+
+            var submissionIds = submissions.Models?.Select(s => s.Id).ToList() ?? new List<string>();
+
+            if (!submissionIds.Any())
+                return new HashSet<string>();
+
+            var passedTests = new HashSet<string>();
+
+            foreach (var submissionId in submissionIds)
+            {
+                var testResults = await _supabaseClient
+                    .From<SubmissionTest>()
+                    .Where(st => st.SubmissionId == submissionId && st.Passed == true)
+                    .Select("test_id")
+                    .Get();
+
+                foreach (var test in testResults.Models ?? new List<SubmissionTest>())
+                {
+                    passedTests.Add(test.TestId);
+                }
+            }
+
+            _logger.LogInformation("Found {Count} passed tests for user {UserId}", passedTests.Count, userId);
+            return passedTests;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting passed test ids");
+            return new HashSet<string>();
+        }
+    }
     private async Task<List<TestDto>> GetTestsForLessonAsync(string lessonId, string languageName)
     {
         try

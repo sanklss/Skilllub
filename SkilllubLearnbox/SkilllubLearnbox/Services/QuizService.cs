@@ -122,13 +122,8 @@ public class QuizService
 
             if (isPassed)
             {
-                _logger.LogInformation("✅ Quiz passed for lesson {LessonId}, marking practice as completed", lessonId);
-                await _progressService.MarkPracticeAsCompletedAsync(userId, lessonId, (int)score);
-            }
-            else
-            {
-                _logger.LogInformation("❌ Quiz failed for lesson {LessonId}: {Correct}/{Total} correct",
-                    lessonId, correctCount, questions.Count);
+                _logger.LogInformation("✅ Quiz passed for lesson {LessonId}, marking quiz as completed", lessonId);
+                await _progressService.MarkQuizAsCompletedAsync(userId, lessonId, (int)score);
             }
 
             return new QuizResultDto

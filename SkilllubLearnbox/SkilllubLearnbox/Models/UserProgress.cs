@@ -22,6 +22,13 @@ public class UserProgress : BaseModel
     [Column("theory_completed")]
     public bool TheoryCompleted { get; set; } = false;
 
+    [Column("quiz_completed")]
+    public bool QuizCompleted { get; set; } = false;
+
+    [Column("code_completed")]
+    public bool CodeCompleted { get; set; } = false;
+
+    [Obsolete("Используйте QuizCompleted и CodeCompleted вместо PracticeCompleted")]
     [Column("practice_completed")]
     public bool PracticeCompleted { get; set; } = false;
 

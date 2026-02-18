@@ -64,12 +64,17 @@ public class CodeController : ControllerBase
         try
         {
             var userId = User.FindFirst("userId")?.Value;
-            if (string.IsNullOrEmpty(userId))
-            {
-                return Unauthorized(new { success = false, error = "Пользователь не авторизован" });
-            }
 
-            // Проверяем доступ к уроку
+            _logger.LogWarning("========== ВХОДНЫЕ ДАННЫЕ ==========");
+            _logger.LogWarning("LessonId: {LessonId}", lessonId);
+            _logger.LogWarning("Code length: {CodeLength}", dto.Code?.Length ?? 0);
+            _logger.LogWarning("Language: {Language}", dto.Language);
+            _logger.LogWarning("Stdin (как строка): '{Stdin}'", dto.Stdin);
+            _logger.LogWarning("Stdin длина: {Length}", dto.Stdin?.Length ?? 0);
+            _logger.LogWarning("Stdin байты: {Bytes}",
+                string.Join(",", System.Text.Encoding.UTF8.GetBytes(dto.Stdin ?? "")));
+            _logger.LogWarning("======================================");
+
             var lesson = await _courseService.GetLessonByIdAsync(lessonId, userId);
             if (lesson == null)
             {
@@ -80,7 +85,8 @@ public class CodeController : ControllerBase
                 lessonId,
                 dto.Code,
                 dto.Language,
-                userId
+                userId,
+                dto.Stdin ?? "" 
             );
 
             var allTestsPassed = result?.PassedTests == result?.TotalTests && result?.TotalTests > 0;

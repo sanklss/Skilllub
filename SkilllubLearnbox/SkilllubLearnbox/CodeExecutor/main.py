@@ -8,6 +8,7 @@ app = FastAPI(title="Code Executor")
 class CodeRequest(BaseModel):
     code: str
     language: str
+    stdin: str = ""
     timeout: int = 5
 
 class CodeResponse(BaseModel):
@@ -24,6 +25,7 @@ async def execute_code(request: CodeRequest):
         if request.language == "python":
             result = subprocess.run(
                 ["python", "-c", request.code],
+                input=request.stdin, 
                 capture_output=True,
                 text=True,
                 timeout=request.timeout
@@ -39,6 +41,7 @@ async def execute_code(request: CodeRequest):
         elif request.language == "javascript" or request.language == "js":
             result = subprocess.run(
                 ["node", "-e", request.code],
+                input=request.stdin,
                 capture_output=True,
                 text=True,
                 timeout=request.timeout
