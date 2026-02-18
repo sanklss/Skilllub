@@ -1218,10 +1218,10 @@ public class ProgressService
             }
 
             Console.WriteLine("\n===========================================");
-            Console.WriteLine($"📊 ИТОГИ:");
-            Console.WriteLine($"   ✅ Создано новых записей: {created}");
-            Console.WriteLine($"   ⏭️ Пропущено (уже были): {skipped}");
-            Console.WriteLine($"   📦 Всего модулей: {modules.Count}");
+            Console.WriteLine($"ИТОГИ:");
+            Console.WriteLine($"Создано новых записей: {created}");
+            Console.WriteLine($"Пропущено (уже были): {skipped}");
+            Console.WriteLine($"Всего модулей: {modules.Count}");
 
             var verifyResponse = await _client
                 .From<UserModuleProgress>()
@@ -1229,8 +1229,8 @@ public class ProgressService
                 .Get();
 
             var verifyCount = verifyResponse?.Models?.Count ?? 0;
-            Console.WriteLine($"\n🔍 ПРОВЕРКА В БД:");
-            Console.WriteLine($"   📊 Записей в user_module_progress для курса: {verifyCount}");
+            Console.WriteLine($"РОВЕРКА В БД:");
+            Console.WriteLine($"Записей в user_module_progress для курса: {verifyCount}");
 
             if (verifyCount > 0)
             {
