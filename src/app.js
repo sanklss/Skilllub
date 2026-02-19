@@ -232,4 +232,9 @@ window.openLesson = function(lessonId) {
     }
 }
 
+if (this.authManager.isAuthenticated()) {
+    const user = this.authManager.getCurrentUser();
+    this.uiManager.showUser(user);
+}
+
 export { LearnBoxApp };

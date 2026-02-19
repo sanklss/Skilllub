@@ -253,18 +253,110 @@ export class UIManager {
         }
     }
 
-    updateProfile(user) {
-        const profileUsername = document.getElementById("profile-username");
-        const profileEmail = document.getElementById("profile-email");
-        const profileRole = document.getElementById("profile-role");
-        
-        if (profileUsername) profileUsername.textContent = user.username;
-        if (profileEmail) profileEmail.textContent = user.email;
-        if (profileRole) {
-            const roleText = this.getRoleDisplayName(user.role);
-            profileRole.textContent = `Роль: ${roleText}`;
+    async updateProfile(user) {
+    const profileUsername = document.getElementById("profile-username");
+    const profileEmail = document.getElementById("profile-email");
+    const profileRole = document.getElementById("profile-role");
+    
+    if (profileUsername) profileUsername.textContent = user.username;
+    if (profileEmail) profileEmail.textContent = user.email;
+    if (profileRole) {
+        const roleText = this.getRoleDisplayName(user.role);
+        profileRole.textContent = `Роль: ${roleText}`;
+    }
+    
+    try {
+        const result = await window.app.api.getUserStatistics();
+        if (result.success) {
+            this.updateStatistics(result.statistics);
+        }
+    } catch (error) {
+        console.error('Ошибка загрузки статистики:', error);
+    }
+}
+
+async updateProfile(user) {
+    console.log('🟢 updateProfile called with user:', user);
+    
+    const profileUsername = document.getElementById("profile-username");
+    const profileEmail = document.getElementById("profile-email");
+    const profileRole = document.getElementById("profile-role");
+    
+    if (profileUsername) profileUsername.textContent = user.username;
+    if (profileEmail) profileEmail.textContent = user.email;
+    if (profileRole) {
+        const roleText = this.getRoleDisplayName(user.role);
+        profileRole.textContent = `Роль: ${roleText}`;
+    }
+    
+    // Загружаем статистику через глобальный app
+    if (window.app && window.app.api) {
+        try {
+            console.log('📊 Загружаем статистику...');
+            const result = await window.app.api.getUserStatistics();
+            console.log('📊 Результат статистики:', result);
+            
+            if (result.success) {
+                this.updateStatistics(result.statistics);
+            } else {
+                console.error('Ошибка в ответе статистики:', result.error);
+            }
+        } catch (error) {
+            console.error('❌ Ошибка загрузки статистики:', error);
+        }
+    } else {
+        console.log('⏳ app.api еще не готов, статистика не загружена');
+    }
+}
+
+updateStatistics(stats) {
+    console.log('📈 updateStatistics called with:', stats);
+    
+    const completedCourses = document.getElementById('completed-courses');
+    const completedLessons = document.getElementById('completed-lessons');
+    const solvedChallenges = document.getElementById('solved-challenges');
+    
+    const progressCard = document.querySelector('.progress-card');
+    if (progressCard) {
+        const mutedText = progressCard.querySelector('p.muted');
+        if (mutedText) {
+            mutedText.style.display = 'none';
         }
     }
+    
+    if (completedCourses) {
+        completedCourses.textContent = stats.completedCourses || 0;
+        completedCourses.classList.remove('muted');
+        const parent = completedCourses.closest('.stat-item');
+        if (parent) {
+            const label = parent.querySelector('.stat-label');
+            if (label) label.classList.remove('muted');
+        }
+        console.log('✅ completedCourses updated to:', stats.completedCourses);
+    }
+    
+    if (completedLessons) {
+        completedLessons.textContent = stats.completedLessons || 0;
+        completedLessons.classList.remove('muted');
+        const parent = completedLessons.closest('.stat-item');
+        if (parent) {
+            const label = parent.querySelector('.stat-label');
+            if (label) label.classList.remove('muted');
+        }
+        console.log('✅ completedLessons updated to:', stats.completedLessons);
+    }
+    
+    if (solvedChallenges) {
+        solvedChallenges.textContent = stats.solvedChallenges || 0;
+        solvedChallenges.classList.remove('muted');
+        const parent = solvedChallenges.closest('.stat-item');
+        if (parent) {
+            const label = parent.querySelector('.stat-label');
+            if (label) label.classList.remove('muted');
+        }
+        console.log('✅ solvedChallenges updated to:', stats.solvedChallenges);
+    }
+}
 
     getRoleDisplayName(role) {
         const roles = {

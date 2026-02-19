@@ -460,4 +460,9 @@ async getCodeTemplate(lessonId, languageId, userId = null) {
     const response = await this.request(url);
     return response.json();
 }
+
+async getUserStatistics() {
+    const response = await this.request('/progress/user-statistics');
+    return response.json();
+}
 }
