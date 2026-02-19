@@ -1,8 +1,9 @@
-﻿using SkilllubLearnbox.DTOs;
+﻿using Microsoft.Extensions.Logging;
+using SkilllubLearnbox.DTOs;
 using SkilllubLearnbox.Models;
-using Microsoft.Extensions.Logging;
 using Supabase;
 using Supabase.Postgrest;
+using static Supabase.Postgrest.Constants;
 
 namespace SkilllubLearnbox.Services;
 
@@ -103,24 +104,25 @@ public class CourseService
 
             _logger.LogInformation("Загрузка модулей курса {CourseId} из базы данных", courseId);
 
-            var response = await _client
+            var modulesResponse = await _client
                 .From<Module>()
                 .Where(x => x.CourseId == courseId)
                 .Order(x => x.ModuleOrder, Constants.Ordering.Ascending)
                 .Get();
 
-            if (response == null || response.Models == null)
+            var modules = modulesResponse.Models?.ToList() ?? new List<Module>();
+
+            if (!modules.Any())
             {
                 _logger.LogWarning("Модули не найдены для курса {CourseId}", courseId);
                 return new List<ModuleDto>();
             }
 
-            var modules = response.Models.ToList();
             var moduleDtos = new List<ModuleDto>();
 
-            foreach (var module in modules)
+            if (string.IsNullOrEmpty(userId))
             {
-                var dto = new ModuleDto
+                moduleDtos = modules.Select(module => new ModuleDto
                 {
                     Id = module.Id,
                     CourseId = module.CourseId,
@@ -128,16 +130,51 @@ public class CourseService
                     Description = module.Description,
                     Order = module.ModuleOrder,
                     IsAccessible = true,
-                    IsCompleted = false
-                };
+                    IsCompleted = false,
+                }).ToList();
 
-                if (!string.IsNullOrEmpty(userId))
+                _logger.LogInformation("Загружено {Count} модулей для курса {CourseId}", moduleDtos.Count, courseId);
+                return moduleDtos;
+            }
+
+            var moduleIds = modules.Select(m => m.Id).ToList();
+
+            var lessonsResponse = await _client
+                .From<Lesson>()
+                .Filter("module_id", Operator.In, moduleIds)
+                .Get();
+
+            var allLessons = lessonsResponse.Models?.ToList() ?? new List<Lesson>();
+            var lessonsByModule = allLessons.GroupBy(l => l.ModuleId).ToDictionary(g => g.Key, g => g.ToList());
+
+            var accessibleTasks = new Dictionary<string, Task<bool>>();
+            foreach (var module in modules)
+            {
+                accessibleTasks[module.Id] = _progressService.IsModuleAccessibleAsync(userId, module.Id);
+            }
+            await Task.WhenAll(accessibleTasks.Values);
+
+            var completedTasks = new Dictionary<string, Task<bool>>();
+            foreach (var module in modules)
+            {
+                completedTasks[module.Id] = _progressService.IsModuleCompletedAsync(userId, module.Id);
+            }
+            await Task.WhenAll(completedTasks.Values);
+
+            foreach (var module in modules)
+            {
+                lessonsByModule.TryGetValue(module.Id, out var moduleLessons);
+
+                moduleDtos.Add(new ModuleDto
                 {
-                    dto.IsAccessible = await _progressService.IsModuleAccessibleAsync(userId, module.Id);
-                    dto.IsCompleted = await _progressService.IsModuleCompletedAsync(userId, module.Id);
-                }
-
-                moduleDtos.Add(dto);
+                    Id = module.Id,
+                    CourseId = module.CourseId,
+                    Title = module.Title,
+                    Description = module.Description,
+                    Order = module.ModuleOrder,
+                    IsAccessible = await accessibleTasks[module.Id],
+                    IsCompleted = await completedTasks[module.Id]
+                });
             }
 
             _logger.LogInformation("Загружено {Count} модулей для курса {CourseId}", moduleDtos.Count, courseId);

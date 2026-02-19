@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Logging;
 using SkilllubLearnbox.DTOs;
 using SkilllubLearnbox.Models;
 using Supabase;
@@ -7,6 +8,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using static Supabase.Postgrest.Constants;
 
 namespace SkilllubLearnbox.Services;
 
@@ -14,17 +16,28 @@ public class ProgressService
 {
     private readonly ILogger<ProgressService> _logger;
     private readonly Supabase.Client _client;
-
+    private readonly IMemoryCache _cache;
+    private readonly TimeSpan _cacheDuration = TimeSpan.FromMinutes(10);
     public ProgressService(
         ILogger<ProgressService> logger,
-        Supabase.Client client)
+        Supabase.Client client,
+        IMemoryCache cache) 
     {
         _logger = logger;
         _client = client;
+        _cache = cache; 
     }
 
     private async Task<(bool HasQuiz, bool HasCodeExercise)> GetLessonRequirementsAsync(string lessonId)
     {
+        string cacheKey = $"lesson_req_{lessonId}";
+
+        if (_cache.TryGetValue(cacheKey, out (bool HasQuiz, bool HasCodeExercise) cached))
+        {
+            _logger.LogDebug("Урок {LessonId}: данные из кэша", lessonId);
+            return cached;
+        }
+
         try
         {
             await _client.InitializeAsync();
@@ -41,10 +54,14 @@ public class ProgressService
                 .Get();
             bool hasCodeExercise = codeResponse.Models?.Any() ?? false;
 
-            _logger.LogInformation("Урок {LessonId}: квиз={HasQuiz}, код={HasCodeExercise}",
+            var result = (hasQuiz, hasCodeExercise);
+
+            _cache.Set(cacheKey, result, TimeSpan.FromMinutes(10));
+
+            _logger.LogInformation("Урок {LessonId}: квиз={HasQuiz}, код={HasCodeExercise} (загружено в кэш)",
                 lessonId, hasQuiz, hasCodeExercise);
 
-            return (hasQuiz, hasCodeExercise);
+            return result;
         }
         catch (Exception ex)
         {
@@ -55,6 +72,13 @@ public class ProgressService
 
     private async Task<bool> IsQuizPassedAsync(string userId, string lessonId)
     {
+        string cacheKey = $"quiz_passed_{userId}_{lessonId}";
+
+        if (_cache.TryGetValue(cacheKey, out bool cached))
+        {
+            return cached;
+        }
+
         try
         {
             await _client.InitializeAsync();
@@ -64,7 +88,11 @@ public class ProgressService
                 .Where(qa => qa.UserId == userId && qa.LessonId == lessonId && qa.IsPassed == true)
                 .Get();
 
-            return quizAttempts.Models?.Any() ?? false;
+            bool passed = quizAttempts.Models?.Any() ?? false;
+
+            _cache.Set(cacheKey, passed, TimeSpan.FromMinutes(5));
+
+            return passed;
         }
         catch (Exception ex)
         {
@@ -359,11 +387,27 @@ public class ProgressService
             if (progress == null) return false;
 
             var (hasQuiz, hasCodeExercise) = await GetLessonRequirementsAsync(lessonId);
-            bool theoryDone = progress.TheoryCompleted;
-            bool quizDone = !hasQuiz || progress.QuizCompleted;
-            bool codeDone = !hasCodeExercise || progress.CodeCompleted;
 
-            return theoryDone && quizDone && codeDone;
+            bool theoryDone = progress.TheoryCompleted;
+
+            bool quizDone = !hasQuiz;
+            if (hasQuiz)
+            {
+                quizDone = progress.QuizCompleted;
+            }
+
+            bool codeDone = !hasCodeExercise;
+            if (hasCodeExercise)
+            {
+                codeDone = progress.CodeCompleted;
+            }
+
+            bool isCompleted = theoryDone && quizDone && codeDone;
+
+            _logger.LogDebug("Lesson {LessonId} completed: {IsCompleted} (theory={Theory}, quiz={Quiz}(has={HasQuiz}), code={Code}(has={HasCode}))",
+                lessonId, isCompleted, theoryDone, progress.QuizCompleted, hasQuiz, progress.CodeCompleted, hasCodeExercise);
+
+            return isCompleted;
         }
         catch (Exception ex)
         {
@@ -428,20 +472,15 @@ public class ProgressService
                 }
             }
 
-            bool shouldBeCompleted = progress.TheoryCompleted;
+            bool theoryDone = progress.TheoryCompleted;
+            bool quizDone = !hasQuiz || progress.QuizCompleted;
+            bool codeDone = !hasCodeExercise || progress.CodeCompleted;
 
-            if (hasQuiz)
-            {
-                shouldBeCompleted = shouldBeCompleted && progress.QuizCompleted;
-            }
+            bool shouldBeCompleted = theoryDone && quizDone && codeDone;
 
-            if (hasCodeExercise)
-            {
-                shouldBeCompleted = shouldBeCompleted && progress.CodeCompleted;
-            }
-
-            _logger.LogInformation("Проверка урока {LessonId}: теория={Theory}, квиз={Quiz}, код={Code}, должен быть завершен={Should}",
-                lessonId, progress.TheoryCompleted, progress.QuizCompleted, progress.CodeCompleted, shouldBeCompleted);
+            _logger.LogInformation("Проверка урока {LessonId}: теория={Theory}, квиз={Quiz}({HasQuiz}), код={Code}({HasCode}) = {Should}",
+                lessonId, progress.TheoryCompleted, progress.QuizCompleted, hasQuiz, progress.CodeCompleted, hasCodeExercise,
+                shouldBeCompleted ? "✅" : "❌");
 
             if (shouldBeCompleted && !progress.Completed)
             {
@@ -837,8 +876,23 @@ public class ProgressService
 
             _logger.LogWarning("🔍 ПРОВЕРКА МОДУЛЯ {ModuleId} для пользователя {UserId}", moduleId, userId);
 
-            var isCompleted = await CheckModuleCompletionByLessonsAsync(userId, moduleId);
+            if (moduleId.StartsWith("10000001"))
+            {
+                _logger.LogError("❌ ОШИБКА: Передан ID урока вместо ID модуля! LessonId: {LessonId}", moduleId);
 
+                var lesson = await GetModuleByLessonIdAsync(moduleId);
+                if (lesson != null)
+                {
+                    moduleId = lesson.Id;
+                    _logger.LogWarning("✅ Исправлено: используем moduleId = {ModuleId}", moduleId);
+                }
+                else
+                {
+                    return;
+                }
+            }
+
+            var isCompleted = await CheckModuleCompletionByLessonsAsync(userId, moduleId);
             _logger.LogWarning("📊 РЕЗУЛЬТАТ: модуль завершен = {IsCompleted}", isCompleted);
 
             if (isCompleted)
@@ -949,6 +1003,8 @@ public class ProgressService
         try
         {
             await _client.InitializeAsync();
+
+            // 1. Загружаем все уроки модуля (1 запрос)
             var lessonsResponse = await _client
                 .From<Lesson>()
                 .Where(l => l.ModuleId == moduleId)
@@ -959,21 +1015,27 @@ public class ProgressService
             if (!moduleLessons.Any())
                 return false;
 
-            var allProgressResponse = await _client
+            var lessonIds = moduleLessons.Select(l => l.Id).ToList();
+
+            // 2. Загружаем прогресс пользователя по этим урокам (1 запрос)
+            // ИСПРАВЛЕНО: правильный синтаксис для Supabase
+            var progressResponse = await _client
                 .From<UserProgress>()
-                .Where(up => up.UserId == userId)
+                .Filter("user_id", Operator.Equals, userId)
+                .Filter("lesson_id", Operator.In, lessonIds)
                 .Get();
 
-            var allUserProgress = allProgressResponse?.Models?.ToList() ?? new List<UserProgress>();
+            var progressDict = progressResponse.Models?
+                .ToDictionary(p => p.LessonId, p => p) ?? new Dictionary<string, UserProgress>();
 
-            var progressDict = allUserProgress.ToDictionary(p => p.LessonId, p => p);
+            // 3. Загружаем требования для всех уроков
+            var requirements = await GetBulkLessonRequirementsAsync(lessonIds);
 
             int fullyCompletedCount = 0;
 
             foreach (var lesson in moduleLessons)
             {
-                var (hasQuiz, hasCodeExercise) = await GetLessonRequirementsAsync(lesson.Id);
-
+                var req = requirements.GetValueOrDefault(lesson.Id, (HasQuiz: false, HasCodeExercise: false));
                 progressDict.TryGetValue(lesson.Id, out var progress);
 
                 if (progress == null)
@@ -983,20 +1045,14 @@ public class ProgressService
                 }
 
                 bool theoryDone = progress.TheoryCompleted;
-                bool quizDone = !hasQuiz || progress.QuizCompleted;
-                bool codeDone = !hasCodeExercise || progress.CodeCompleted;
+                bool quizDone = !req.HasQuiz || progress.QuizCompleted;
+                bool codeDone = !req.HasCodeExercise || progress.CodeCompleted;
 
                 bool isFullyCompleted = theoryDone && quizDone && codeDone;
 
                 if (isFullyCompleted)
                 {
                     fullyCompletedCount++;
-                    _logger.LogDebug("Урок {LessonId} ПОЛНОСТЬЮ завершен", lesson.Id);
-                }
-                else
-                {
-                    _logger.LogDebug("Урок {LessonId} НЕ полностью завершен: теория={Theory}, квиз={Quiz}, код={Code}",
-                        lesson.Id, theoryDone, quizDone, codeDone);
                 }
             }
 
@@ -1011,7 +1067,78 @@ public class ProgressService
             return false;
         }
     }
+    private async Task<Dictionary<string, (bool HasQuiz, bool HasCodeExercise)>>
+    GetBulkLessonRequirementsAsync(List<string> lessonIds)
+    {
+        var result = new Dictionary<string, (bool HasQuiz, bool HasCodeExercise)>();
+        var uncachedIds = new List<string>();
 
+        foreach (var lessonId in lessonIds)
+        {
+            string cacheKey = $"lesson_req_{lessonId}";
+            if (_cache.TryGetValue(cacheKey, out (bool HasQuiz, bool HasCodeExercise) cached))
+            {
+                result[lessonId] = cached;
+            }
+            else
+            {
+                uncachedIds.Add(lessonId);
+            }
+        }
+
+        if (!uncachedIds.Any())
+            return result;
+
+        try
+        {
+            await _client.InitializeAsync();
+
+            var quizResponse = await _client
+                .From<QuizQuestion>()
+                .Select("lesson_id")
+                .Filter("lesson_id", Operator.In, uncachedIds)
+                .Get();
+
+            var lessonsWithQuiz = quizResponse.Models?
+                .Select(q => q.LessonId)
+                .Where(id => id != null)
+                .ToHashSet() ?? new HashSet<string>();
+
+            var codeResponse = await _client
+                .From<CodeTemplate>()
+                .Filter("lesson_id", Operator.In, uncachedIds)
+                .Get();
+
+            var lessonsWithCode = codeResponse.Models?
+                .Select(ct => ct.LessonId)
+                .Where(id => id != null)
+                .ToHashSet() ?? new HashSet<string>();
+
+            foreach (var lessonId in uncachedIds)
+            {
+                bool hasQuiz = lessonsWithQuiz.Contains(lessonId);
+                bool hasCode = lessonsWithCode.Contains(lessonId);
+
+                var req = (HasQuiz: hasQuiz, HasCodeExercise: hasCode);
+                result[lessonId] = req;
+
+                string cacheKey = $"lesson_req_{lessonId}";
+                _cache.Set(cacheKey, req, _cacheDuration);
+            }
+
+            _logger.LogInformation("Загружено требований для {Count} уроков", uncachedIds.Count);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Ошибка при массовой загрузке требований");
+            foreach (var lessonId in uncachedIds.Where(id => !result.ContainsKey(id)))
+            {
+                result[lessonId] = await GetLessonRequirementsAsync(lessonId);
+            }
+        }
+
+        return result;
+    }
     private async Task CreateModuleCompletionRecord(string userId, string moduleId)
     {
         try

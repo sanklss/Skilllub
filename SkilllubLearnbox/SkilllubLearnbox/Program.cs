@@ -43,6 +43,7 @@ builder.Services.AddScoped<JwtService>();
 builder.Services.AddScoped<TokenService>();
 builder.Services.AddScoped<CourseService>();
 builder.Services.AddScoped<QuizService>();
+builder.Services.AddMemoryCache();
 builder.Services.AddScoped<ProgressService>();
 builder.Services.AddHttpClient();
 builder.Services.AddScoped<CodeExecutionService>();
