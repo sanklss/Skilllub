@@ -290,4 +290,31 @@ public class ProgressController : ControllerBase
         }
     }
 
+    [HttpGet("user-statistics")]
+    [Authorize]
+    public async Task<IActionResult> GetUserStatistics()
+    {
+        try
+        {
+            var userId = User.FindFirst("userId")?.Value;
+            if (string.IsNullOrEmpty(userId))
+            {
+                return Unauthorized(new { success = false, error = "Пользователь не авторизован" });
+            }
+
+            var statistics = await _progressService.GetUserStatisticsAsync(userId);
+
+            return Ok(new
+            {
+                success = true,
+                statistics
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Ошибка при получении статистики пользователя");
+            return StatusCode(500, new { success = false, error = "Ошибка сервера" });
+        }
+    }
+
 }

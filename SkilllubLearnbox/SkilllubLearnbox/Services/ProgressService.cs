@@ -1380,4 +1380,65 @@ public class ProgressService
             Console.WriteLine($"Stack trace: {ex.StackTrace}");
         }
     }
+
+    public async Task<UserStatisticsDto> GetUserStatisticsAsync(string userId)
+    {
+        try
+        {
+            var statistics = new UserStatisticsDto
+            {
+                CompletedCourses = 0,
+                CompletedLessons = 0,
+                SolvedChallenges = 0
+            };
+
+            if (string.IsNullOrEmpty(userId))
+                return statistics;
+
+            await _client.InitializeAsync();
+
+            var progressResponse = await _client
+                .From<UserProgress>()
+                .Filter("user_id", Operator.Equals, userId)
+                .Filter("completed", Operator.Equals, "true")  
+                .Get();
+
+            var completedLessons = progressResponse.Models?.ToList() ?? new List<UserProgress>();
+            statistics.CompletedLessons = completedLessons.Count;
+
+            var userCoursesResponse = await _client
+                .From<UserCourse>()
+                .Filter("user_id", Operator.Equals, userId)
+                .Filter("completed", Operator.Equals, "true") 
+                .Get();
+
+            var completedCourses = userCoursesResponse.Models?.ToList() ?? new List<UserCourse>();
+            statistics.CompletedCourses = completedCourses.Count;
+
+            var submissionsResponse = await _client
+                .From<Submission>()
+                .Filter("user_id", Operator.Equals, userId)
+                .Get();
+
+            var allSubmissions = submissionsResponse.Models?.ToList() ?? new List<Submission>();
+            var successfulSubmissions = allSubmissions
+                .Where(s => s.TestsPassed == s.TestsTotal && s.TestsTotal > 0)
+                .ToList();
+
+            statistics.SolvedChallenges = successfulSubmissions
+                .Select(s => s.LessonId)
+                .Distinct()
+                .Count();
+
+            _logger.LogInformation("Статистика для пользователя {UserId}: уроков={Lessons}, курсов={Courses}, задач={Challenges}",
+                userId, statistics.CompletedLessons, statistics.CompletedCourses, statistics.SolvedChallenges);
+
+            return statistics;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "❌ Ошибка при получении статистики пользователя {UserId}", userId);
+            return new UserStatisticsDto();
+        }
+    }
 }
