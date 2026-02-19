@@ -249,7 +249,7 @@ export class CourseManager {
         await this.openLesson(lessonId);
     }
 
-    async openLesson(lessonId) {
+async openLesson(lessonId) {
     if (!this.isUserEnrolled && this.isAuthenticated) {
         this.uiManager.showToast('Запишитесь на курс, чтобы открыть урок', 'warning');
         return;
@@ -270,7 +270,11 @@ export class CourseManager {
         if (result.success) {
             this.currentLesson = result.lesson;
             
-            // ========== ЗАГРУЖАЕМ template_code ИЗ ТАБЛИЦЫ code_templates ==========
+            if (this.isUserEnrolled) {
+                console.log('📖 Отмечаем теорию как прочитанную для урока:', lessonId);
+                await this.api.markTheoryAsRead(lessonId);
+            }
+            
             const pythonLanguageId = '11111111-1111-1111-1111-111111111111';
             const templateResult = await this.api.getCodeTemplate(lessonId, pythonLanguageId, this.userId);
             
@@ -286,11 +290,10 @@ export class CourseManager {
                 console.log('❌ template не найден или ошибка');
                 this.currentLesson.templateCode = '';
             }
-            // ======================================================================
             
             this.renderLessonContent(this.currentLesson);
             
-            await this.checkAndUpdateLessonStatus(lessonId);
+            await this.refreshLessonStatus(lessonId);
             
             const hasQuiz = await this.checkIfLessonHasQuiz(lessonId);
             const hasCodeExercise = await this.checkIfLessonHasCodeExercise(lessonId);
