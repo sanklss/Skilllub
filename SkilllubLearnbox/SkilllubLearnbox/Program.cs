@@ -47,6 +47,8 @@ builder.Services.AddMemoryCache();
 builder.Services.AddScoped<ProgressService>();
 builder.Services.AddHttpClient();
 builder.Services.AddScoped<CodeExecutionService>();
+builder.Services.AddScoped<TeacherService>();
+
 
 builder.Services.AddCors(options =>
 {

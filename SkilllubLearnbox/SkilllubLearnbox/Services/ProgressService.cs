@@ -28,7 +28,7 @@ public class ProgressService
         _cache = cache; 
     }
 
-    private async Task<(bool HasQuiz, bool HasCodeExercise)> GetLessonRequirementsAsync(string lessonId)
+    public async Task<(bool HasQuiz, bool HasCodeExercise)> GetLessonRequirementsAsync(string lessonId)
     {
         string cacheKey = $"lesson_req_{lessonId}";
 
@@ -1004,7 +1004,6 @@ public class ProgressService
         {
             await _client.InitializeAsync();
 
-            // 1. Загружаем все уроки модуля (1 запрос)
             var lessonsResponse = await _client
                 .From<Lesson>()
                 .Where(l => l.ModuleId == moduleId)
@@ -1016,9 +1015,6 @@ public class ProgressService
                 return false;
 
             var lessonIds = moduleLessons.Select(l => l.Id).ToList();
-
-            // 2. Загружаем прогресс пользователя по этим урокам (1 запрос)
-            // ИСПРАВЛЕНО: правильный синтаксис для Supabase
             var progressResponse = await _client
                 .From<UserProgress>()
                 .Filter("user_id", Operator.Equals, userId)
@@ -1028,7 +1024,6 @@ public class ProgressService
             var progressDict = progressResponse.Models?
                 .ToDictionary(p => p.LessonId, p => p) ?? new Dictionary<string, UserProgress>();
 
-            // 3. Загружаем требования для всех уроков
             var requirements = await GetBulkLessonRequirementsAsync(lessonIds);
 
             int fullyCompletedCount = 0;
