@@ -211,16 +211,13 @@ export class UIManager {
             });
         }
 
-        if (btnTeacherPanel && user.role === 'teacher') {
-            btnTeacherPanel.addEventListener("click", () => {
-                window.location.href = '/src/pages/teacher-panel.html';
-                userMenu.classList.add('hidden');
-            });
-        }
-
-        this.updateProfile(user);
+            if (btnTeacherPanel && user.role === 'teacher') {
+        btnTeacherPanel.addEventListener("click", () => {
+            this.showSection('teacher-panel'); 
+            userMenu.classList.add('hidden');
+        });
     }
-
+    }
     showAuthButtons() {
         const userControls = document.getElementById("user-controls");
         if (!userControls) return;

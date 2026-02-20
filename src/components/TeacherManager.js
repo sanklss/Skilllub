@@ -61,34 +61,28 @@ export class TeacherManager {
     }
 
     async loadDashboard() {
-    try {
-        this.uiManager.showLoading(true); 
-        const result = await this.api.getTeacherDashboard();
-        
-        if (result.success) {
-            this.renderDashboard(result.dashboard);
-        } else {
+        try {
+            this.uiManager.showLoading(true); 
+            const result = await this.api.getTeacherDashboard();
+            
+            if (result.success) {
+                this.renderDashboard(result.dashboard);
+            } else {
+                this.uiManager.showToast('Ошибка загрузки дашборда', 'error');
+            }
+        } catch (error) {
+            console.error('Ошибка загрузки дашборда:', error);
             this.uiManager.showToast('Ошибка загрузки дашборда', 'error');
+        } finally {
+            this.uiManager.showLoading(false); 
         }
-    } catch (error) {
-        console.error('Ошибка загрузки дашборда:', error);
-        this.uiManager.showToast('Ошибка загрузки дашборда', 'error');
-    } finally {
-        this.uiManager.showLoading(false); 
     }
-}
 
     renderDashboard(dashboard) {
-        const totalStudentsEl = document.getElementById('dashboard-total-students');
-        if (totalStudentsEl) totalStudentsEl.textContent = dashboard.totalStudents || 0;
-        
-        const activeCoursesEl = document.getElementById('dashboard-active-courses');
-        if (activeCoursesEl) activeCoursesEl.textContent = dashboard.activeCourses || 0;
-        
-        const completedLessonsEl = document.getElementById('dashboard-completed-lessons');
-        if (completedLessonsEl) completedLessonsEl.textContent = dashboard.totalLessonsCompleted || 0;
+        document.getElementById('dashboard-total-students').textContent = dashboard.totalStudents || 0;
+        document.getElementById('dashboard-active-courses').textContent = dashboard.activeCourses || 0;
+        document.getElementById('dashboard-completed-lessons').textContent = dashboard.totalLessonsCompleted || 0;
 
-        // Отображаем список курсов
         const container = document.getElementById('dashboard-courses-list');
         if (!container) return;
 
@@ -179,13 +173,16 @@ export class TeacherManager {
             const dashboard = await this.api.getTeacherDashboard();
             if (!dashboard.success) return;
 
-            // Заполняем фильтр курсов
             const filter = document.getElementById('student-course-filter');
             if (filter) {
                 filter.innerHTML = '<option value="">Все курсы</option>' + 
                     (dashboard.dashboard.courses || []).map(c => 
                         `<option value="${c.id}">${c.title}</option>`
                     ).join('');
+                
+                filter.addEventListener('change', (e) => {
+                    this.loadCourseStudents(e.target.value);
+                });
             }
 
             if (dashboard.dashboard.courses && dashboard.dashboard.courses.length > 0) {
@@ -204,6 +201,7 @@ export class TeacherManager {
 
     async loadCourseStudents(courseId) {
         try {
+            this.currentCourseId = courseId;
             const result = await this.api.getCourseStudents(courseId);
             if (result.success) {
                 this.renderStudentsList(result.students);
@@ -272,11 +270,8 @@ export class TeacherManager {
     }
 
     renderTeacherStatistics(dashboard) {
-        const totalStudentsEl = document.getElementById('stats-total-students');
-        if (totalStudentsEl) totalStudentsEl.textContent = dashboard.totalStudents || 0;
-        
-        const avgProgressEl = document.getElementById('stats-average-progress');
-        if (avgProgressEl) avgProgressEl.textContent = dashboard.averageProgress || 0 + '%';
+        document.getElementById('stats-total-students').textContent = dashboard.totalStudents || 0;
+        document.getElementById('stats-average-progress').textContent = (dashboard.averageProgress || 0) + '%';
 
         const popularCoursesEl = document.getElementById('stats-popular-courses');
         if (popularCoursesEl) {
@@ -300,8 +295,179 @@ export class TeacherManager {
     }
 
     async viewStudentProgress(studentId) {
-        this.currentStudentId = studentId;
-        this.uiManager.showToast('Детальный прогресс студента будет доступен позже', 'info');
+        if (!this.currentCourseId) {
+            const dashboard = await this.api.getTeacherDashboard();
+            if (dashboard.success && dashboard.dashboard.courses.length > 0) {
+                this.currentCourseId = dashboard.dashboard.courses[0].id;
+            } else {
+                this.uiManager.showToast('Не найден курс для просмотра', 'error');
+                return;
+            }
+        }
+
+        try {
+            this.uiManager.showLoading(true);
+            const result = await this.api.getStudentProgress(studentId, this.currentCourseId);
+            
+            if (result.success) {
+                this.showStudentProgressModal(result.progress);
+            } else {
+                this.uiManager.showToast('Ошибка загрузки прогресса', 'error');
+            }
+        } catch (error) {
+            console.error('Ошибка загрузки прогресса:', error);
+            this.uiManager.showToast('Ошибка загрузки прогресса', 'error');
+        } finally {
+            this.uiManager.showLoading(false);
+        }
+    }
+
+    showStudentProgressModal(progress) {
+        let modal = document.getElementById('student-progress-modal');
+        
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'student-progress-modal';
+            modal.className = 'modal';
+            
+            modal.innerHTML = `
+                <div class="modal-card" style="max-width: 800px; width: 90%;">
+                    <header>
+                        <h3>Прогресс студента: <span id="modal-student-name"></span></h3>
+                        <button class="close-btn" onclick="document.getElementById('student-progress-modal').classList.add('hidden')">✕</button>
+                    </header>
+                    <div class="modal-content">
+                        <div class="student-info" style="margin-bottom: 20px; padding: 15px; background: #f7fafc; border-radius: 8px;">
+                            <p><strong>Email:</strong> <span id="modal-student-email"></span></p>
+                            <p><strong>Всего уроков:</strong> <span id="modal-total-lessons">0</span> | 
+                               <strong>Пройдено:</strong> <span id="modal-completed-lessons">0</span> | 
+                               <strong>Прогресс:</strong> <span id="modal-progress-percent">0%</span></p>
+                        </div>
+                        
+                        <div id="modal-modules-list" class="modules-progress">
+                            <!-- Сюда загрузятся модули -->
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+        }
+
+        document.getElementById('modal-student-name').textContent = progress.username;
+        document.getElementById('modal-student-email').textContent = progress.email;
+        document.getElementById('modal-total-lessons').textContent = progress.totalLessons || 0;
+        document.getElementById('modal-completed-lessons').textContent = progress.completedLessons || 0;
+        
+        const percent = progress.totalLessons > 0 
+            ? Math.round((progress.completedLessons / progress.totalLessons) * 100) 
+            : 0;
+        document.getElementById('modal-progress-percent').textContent = percent + '%';
+
+        const modulesContainer = document.getElementById('modal-modules-list');
+        
+        if (!progress.modules || progress.modules.length === 0) {
+            modulesContainer.innerHTML = '<p class="muted">Нет данных о прогрессе</p>';
+        } else {
+            modulesContainer.innerHTML = progress.modules.map(module => `
+                <div class="module-card" style="margin-bottom: 20px; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;">
+                    <div class="module-header" style="padding: 12px 15px; background: #edf2f7; cursor: pointer; display: flex; justify-content: space-between; align-items: center;"
+                         onclick="this.nextElementSibling.classList.toggle('hidden')">
+                        <div>
+                            <strong>${module.moduleTitle}</strong>
+                            <span style="margin-left: 10px; font-size: 0.9em; color: #718096;">
+                                ${module.completedLessons || 0}/${module.totalLessons || 0} уроков
+                            </span>
+                        </div>
+                        <span>${module.isCompleted ? '✅' : '⏳'}</span>
+                    </div>
+                    <div class="module-lessons hidden" style="padding: 10px;">
+                        ${module.lessons.map(lesson => `
+                            <div class="lesson-item" style="padding: 10px; margin: 5px 0; background: #f8fafc; border-radius: 4px; border-left: 4px solid ${lesson.isCompleted ? '#48bb78' : '#cbd5e0'};">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <div>
+                                        <strong>${lesson.lessonOrder}. ${lesson.lessonTitle}</strong>
+                                        <div style="font-size: 0.9em; color: #4a5568;">
+                                            ${lesson.theoryCompleted ? '📖 Теория ✓' : '📖 Теория ✗'}
+                                            ${lesson.hasQuiz ? (lesson.quizCompleted ? ' 📝 Квиз ✓' : ' 📝 Квиз ✗') : ''}
+                                            ${lesson.hasCodeExercise ? (lesson.codeCompleted ? ' 💻 Код ✓' : ' 💻 Код ✗') : ''}
+                                        </div>
+                                        ${lesson.bestScore > 0 ? `<div style="font-size: 0.9em; color: #718096;">Лучший результат: ${lesson.bestScore}%</div>` : ''}
+                                    </div>
+                                    <span style="font-size: 1.2em;">${lesson.isCompleted ? '✅' : '❌'}</span>
+                                </div>
+                                
+                                ${lesson.submissions && lesson.submissions.length > 0 ? `
+                                    <details style="margin-top: 8px;">
+                                        <summary style="color: #4299e1; cursor: pointer; font-size: 0.9em;">Последние попытки (${lesson.submissions.length})</summary>
+                                        <div style="margin-top: 8px; padding: 8px; background: white; border-radius: 4px;">
+                                            ${lesson.submissions.map(sub => `
+                                                <div style="padding: 5px; border-bottom: 1px solid #e2e8f0; font-size: 0.85em;">
+                                                    ${new Date(sub.createdAt).toLocaleString()}
+                                                    ${sub.testsTotal ? ` - Тесты: ${sub.testsPassed}/${sub.testsTotal}` : ''}
+                                                    ${sub.score ? ` - Оценка: ${sub.score}%` : ''}
+                                                </div>
+                                            `).join('')}
+                                        </div>
+                                    </details>
+                                ` : ''}
+                                
+                                <div style="margin-top: 8px; display: flex; gap: 8px;">
+                                    <button class="btn-secondary btn-xs" onclick="app.teacherManager.markLessonCompleted('${progress.userId}', '${lesson.lessonId}')">
+                                        ✓ Завершить
+                                    </button>
+                                    <button class="btn-warning btn-xs" onclick="app.teacherManager.resetLesson('${progress.userId}', '${lesson.lessonId}')">
+                                        ↻ Сбросить
+                                    </button>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        modal.classList.remove('hidden');
+    }
+
+    async markLessonCompleted(studentId, lessonId) {
+        if (!confirm('Отметить урок как завершенный для этого студента?')) return;
+        
+        try {
+            const result = await this.api.performTeacherAction({
+                userId: studentId,
+                lessonId: lessonId,
+                action: 'complete'
+            });
+            
+            if (result.success) {
+                this.uiManager.showToast('Урок отмечен как завершенный', 'success');
+                this.viewStudentProgress(studentId); 
+            }
+        } catch (error) {
+            console.error('Ошибка:', error);
+            this.uiManager.showToast('Ошибка при выполнении действия', 'error');
+        }
+    }
+
+    async resetLesson(studentId, lessonId) {
+        if (!confirm('Сбросить прогресс урока для этого студента? Это действие нельзя отменить.')) return;
+        
+        try {
+            const result = await this.api.performTeacherAction({
+                userId: studentId,
+                lessonId: lessonId,
+                action: 'reset'
+            });
+            
+            if (result.success) {
+                this.uiManager.showToast('Прогресс урока сброшен', 'success');
+                this.viewStudentProgress(studentId); 
+            }
+        } catch (error) {
+            console.error('Ошибка:', error);
+            this.uiManager.showToast('Ошибка при выполнении действия', 'error');
+        }
     }
 
     editCourse(courseId) {

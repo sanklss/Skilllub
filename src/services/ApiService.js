@@ -475,4 +475,16 @@ async getCourseStudents(courseId) {
     const response = await this.request(`/teacher/courses/${courseId}/students`);
     return response.json();
 }
+
+async getStudentProgress(studentId, courseId) {
+    const response = await this.request(`/teacher/students/${studentId}/courses/${courseId}/progress`);
+    return response.json();
+}
+async performTeacherAction(action) {
+    const response = await this.request('/teacher/action', {
+        method: 'POST',
+        body: JSON.stringify(action)
+    });
+    return response.json();
+}
 }
