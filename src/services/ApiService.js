@@ -465,4 +465,14 @@ async getUserStatistics() {
     const response = await this.request('/progress/user-statistics');
     return response.json();
 }
+
+async getTeacherDashboard() {
+    const response = await this.request('/teacher/dashboard');
+    return response.json();
+}
+
+async getCourseStudents(courseId) {
+    const response = await this.request(`/teacher/courses/${courseId}/students`);
+    return response.json();
+}
 }

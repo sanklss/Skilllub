@@ -259,80 +259,108 @@
       </section>
 
       <section id="teacher-panel" class="page-section">
-          <div class="teacher-container">
-              <div class="teacher-header">
-                  <h1>Панель преподавателя</h1>
-                  <p class="subtitle">Управление курсами и отслеживание прогресса студентов</p>
-              </div>
+    <div class="teacher-container">
+        <div class="teacher-header">
+            <h1>Панель преподавателя</h1>
+            <p class="subtitle">Управление курсами и отслеживание прогресса студентов</p>
+        </div>
 
-              <nav class="teacher-nav">
-                  <button class="teacher-nav-item active" id="teacher-nav-courses">
-                      Мои курсы
-                  </button>
-                  <button class="teacher-nav-item" id="teacher-nav-students">
-                      Студенты
-                  </button>
-                  <button class="teacher-nav-item" id="teacher-nav-statistics">
-                      Статистика
-                  </button>
-              </nav>
+        <nav class="teacher-nav">
+            <button class="teacher-nav-item active" id="teacher-nav-dashboard">
+                Дашборд
+            </button>
+            <button class="teacher-nav-item" id="teacher-nav-courses">
+                Мои курсы
+            </button>
+            <button class="teacher-nav-item" id="teacher-nav-students">
+                Студенты
+            </button>
+            <button class="teacher-nav-item" id="teacher-nav-statistics">
+                Статистика
+            </button>
+        </nav>
 
-              <div class="teacher-content">
-                  <div id="teacher-dashboard" class="teacher-view">
-                      <div class="teacher-stats-grid">
-                          <div class="stat-card">
-                              <h3>Мои студенты</h3>
-                              <div class="stat-number">0</div>
-                              <p class="stat-description">Всего обучающихся</p>
-                          </div>
-                          <div class="stat-card">
-                              <h3>Активные курсы</h3>
-                              <div class="stat-number">0</div>
-                              <p class="stat-description">Курсы с активными студентами</p>
-                          </div>
-                          <div class="stat-card">
-                              <h3>Пройдено уроков</h3>
-                              <div class="stat-number">0</div>
-                              <p class="stat-description">Всего студентами</p>
-                          </div>
-                      </div>
-                  </div>
+        <div class="teacher-content">
+            <!-- Дашборд -->
+            <div id="teacher-dashboard" class="teacher-view active">
+                <div class="teacher-stats-grid">
+                    <div class="stat-card">
+                        <h3>Мои студенты</h3>
+                        <div class="stat-number" id="dashboard-total-students">0</div>
+                        <p class="stat-description">Всего обучающихся</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Активные курсы</h3>
+                        <div class="stat-number" id="dashboard-active-courses">0</div>
+                        <p class="stat-description">Курсы с активными студентами</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Пройдено уроков</h3>
+                        <div class="stat-number" id="dashboard-completed-lessons">0</div>
+                        <p class="stat-description">Всего студентами</p>
+                    </div>
+                </div>
+                
+                <div class="section-header">
+                    <h2>Ваши курсы</h2>
+                </div>
+                <div id="dashboard-courses-list" class="courses-grid">
+                    <!-- Сюда загрузятся курсы -->
+                </div>
+            </div>
 
-                  <div id="teacher-courses" class="teacher-view hidden">
-                      <div class="teacher-section-header">
-                          <h2>Мои курсы</h2>
-                          <button class="btn-primary" id="create-course-btn">+ Создать курс</button>
-                      </div>
-                      <div class="info-card">
-                          <h3>Функциональность в разработке</h3>
-                          <p>В ближайшее время здесь появится возможность создавать и управлять курсами.</p>
-                      </div>
-                  </div>
+            <!-- Мои курсы -->
+            <div id="teacher-courses" class="teacher-view hidden">
+                <div class="teacher-section-header">
+                    <h2>Мои курсы</h2>
+                    <button class="btn-primary" id="create-course-btn">+ Создать курс</button>
+                </div>
+                <div id="teacher-courses-list" class="courses-grid">
+                    <!-- Сюда загрузятся курсы -->
+                </div>
+            </div>
 
-                  <div id="teacher-students" class="teacher-view hidden">
-                      <div class="teacher-section-header">
-                          <h2>Мои студенты</h2>
-                      </div>
-                      <div class="info-card">
-                          <h3>Отслеживание прогресса студентов</h3>
-                          <p>После создания курсов вы сможете отслеживать прогресс ваших студентов.</p>
-                      </div>
-                  </div>
+            <!-- Студенты -->
+            <div id="teacher-students" class="teacher-view hidden">
+                <div class="teacher-section-header">
+                    <h2>Мои студенты</h2>
+                    <select id="student-course-filter" class="filter-select">
+                        <option value="">Все курсы</option>
+                    </select>
+                </div>
+                <div id="teacher-students-list" class="students-list">
+                    <!-- Сюда загрузится таблица студентов -->
+                </div>
+            </div>
 
-                  <div id="teacher-statistics" class="teacher-view hidden">
-                      <div class="teacher-section-header">
-                          <h2>Статистика преподавания</h2>
-                      </div>
-                      <div class="stats-grid">
-                          <div class="stat-card large">
-                              <h3>Общая статистика</h3>
-                              <p class="muted">Статистика появится после создания курсов</p>
-                          </div>
-                      </div>
-                  </div>
-              </div>
-          </div>
-      </section>
+            <!-- Статистика -->
+            <div id="teacher-statistics" class="teacher-view hidden">
+                <div class="teacher-section-header">
+                    <h2>Статистика преподавания</h2>
+                </div>
+                <div class="stats-grid">
+                    <div class="stat-card large">
+                        <h3>Общая статистика</h3>
+                        <div class="stat-item">
+                            <span>Всего студентов:</span>
+                            <strong id="stats-total-students">0</strong>
+                        </div>
+                        <div class="stat-item">
+                            <span>Средний прогресс:</span>
+                            <strong id="stats-average-progress">0%</strong>
+                        </div>
+                    </div>
+                    <div class="stat-card large">
+                        <h3>Популярные курсы</h3>
+                        <div id="stats-popular-courses">
+                            <p class="muted">Статистика по курсам появится после их создания</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
 
       <section id="home" class="section">
         <header class="page-header">
