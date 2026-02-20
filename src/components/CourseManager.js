@@ -1078,9 +1078,11 @@ async completeLessonAutomatically(lessonId) {
         const enrollmentResult = await this.api.checkEnrollment(courseId);
         
         if (enrollmentResult.success && enrollmentResult.isEnrolled) {
+            const oldProgress = this.courseProgress;
             this.courseProgress = enrollmentResult.progress || 0;
             console.log('Прогресс обновлен:', this.courseProgress);
-                        const sidebarProgressBar = document.querySelector('.course-sidebar .progress-fill');
+            
+            const sidebarProgressBar = document.querySelector('.course-sidebar .progress-fill');
             const sidebarProgressText = document.querySelector('.course-sidebar .progress-text');
             
             if (sidebarProgressBar) {
@@ -1104,9 +1106,13 @@ async completeLessonAutomatically(lessonId) {
             }
             
             console.log(`📊 Прогресс отображен: ${this.courseProgress}%`);
+            
+            if (this.courseProgress >= 100 && oldProgress < 100) {
+                await this.checkCourseCompletion(courseId);
+            }
         }
     } catch (error) {
-        console.error('❌ Ошибка:', error);
+        console.error('❌ Ошибка обновления прогресса:', error);
     }
 }
 
@@ -1413,27 +1419,124 @@ async onLessonOpened(lessonId) {
     }
 
     async onLessonCompleted(lessonId) {
-        console.log('🎉 Lesson fully completed:', lessonId);
+    console.log('🎉 Lesson fully completed:', lessonId);
+    
+    this.uiManager.showToast('🎉 Урок полностью завершен!', 'success');
+    
+    if (this.currentCourse) {
+        const oldProgress = this.courseProgress;
+        await this.updateCourseProgressInUI(this.currentCourse.id);
         
-        this.uiManager.showToast('🎉 Урок полностью завершен!', 'success');
-        
-        if (this.currentCourse) {
-            await this.updateCourseProgressInUI(this.currentCourse.id);
-        }
-        
-        await this.checkAndUpdateModuleCompletion();
-        
-        if (this.currentModule) {
-            await this.loadModuleLessons(this.currentModule.id);
-        }
-        
-        if (this.currentLesson && this.currentLesson.id === lessonId) {
-            this.currentLesson.isCompleted = true;
-            
-            this.showNextLessonPrompt();
+        if (oldProgress < 100 && this.courseProgress >= 100) {
+            await this.checkCourseCompletion(this.currentCourse.id);
         }
     }
-
+    
+    await this.checkAndUpdateModuleCompletion();
+    
+    if (this.currentModule) {
+        await this.loadModuleLessons(this.currentModule.id);
+    }
+    
+    if (this.currentLesson && this.currentLesson.id === lessonId) {
+        this.currentLesson.isCompleted = true;
+        this.showNextLessonPrompt();
+    }
+}
+    async checkCourseCompletion(courseId = null) {
+    console.log('🎯 ПРОВЕРКА ЗАВЕРШЕНИЯ КУРСА');
+    
+    try {
+        const user = this.authManager.getCurrentUser();
+        if (!user) {
+            console.log('❌ Пользователь не авторизован');
+            return;
+        }
+        
+        const targetCourseId = courseId || this.currentCourse?.id;
+        if (!targetCourseId) {
+            console.log('❌ Нет ID курса');
+            return;
+        }
+        
+        const enrollmentResult = await this.api.checkEnrollment(targetCourseId);
+        
+        if (!enrollmentResult.success) {
+            console.log('❌ Не удалось проверить прогресс');
+            return;
+        }
+        
+        const progress = enrollmentResult.progress || 0;
+        console.log(`📊 Прогресс: ${progress}%`);
+        
+        if (progress >= 100) {
+            console.log('🎉 КУРС ЗАВЕРШЕН!');
+            
+            let courseTitle = this.currentCourse?.title;
+            let teacherName = '';
+            
+            // Получаем данные курса
+            console.log('1️⃣ Получаем данные курса...');
+            const courseResult = await this.api.getCourse(targetCourseId);
+            console.log('2️⃣ Ответ по курсу:', courseResult);
+            
+            if (courseResult.success) {
+                courseTitle = courseResult.course.title;
+                
+                // Получаем преподавателя
+                if (courseResult.course.createdBy) {
+                    console.log('3️⃣ ID преподавателя:', courseResult.course.createdBy);
+                    const teacherResult = await this.api.getUser(courseResult.course.createdBy);
+                    console.log('4️⃣ Ответ по преподавателю:', teacherResult);
+                    
+                    if (teacherResult.success) {
+                        teacherName = teacherResult.user.username;
+                        console.log('5️⃣ Имя преподавателя:', teacherName);
+                    } else {
+                        console.log('❌ Ошибка получения преподавателя');
+                    }
+                } else {
+                    console.log('❌ В курсе нет createdBy');
+                }
+            }
+            
+            courseTitle = courseTitle || 'Курс';
+            console.log('6️⃣ Финальное имя преподавателя:', teacherName);
+            
+            if (window.app?.achievementsManager) {
+                console.log('7️⃣ Сохраняем сертификат с преподавателем:', teacherName);
+                const certificate = await window.app.achievementsManager.saveCertificateForCompletedCourse(
+                    user.id,
+                    targetCourseId,
+                    user.username,
+                    courseTitle,
+                    teacherName
+                );
+                console.log('8️⃣ Сертификат сохранён:', certificate);
+                
+                if (certificate) {
+                    const url = `certificate.html?` +
+                        `name=${encodeURIComponent(user.username)}` +
+                        `&course=${encodeURIComponent(courseTitle)}` +
+                        `&date=${new Date().toISOString().split('T')[0]}` +
+                        `&cert=${certificate.certificateNumber}` +
+                        `&teacher=${encodeURIComponent(teacherName)}` +
+                        `&v=${Date.now()}` + 
+                        `&r=${Math.random()}`; 
+                    
+                    console.log('9️⃣ URL для открытия:', url);
+                    console.log('🔟 Преподаватель в URL:', teacherName);
+                    
+                    setTimeout(() => {
+                        window.open(url, '_blank');
+                    }, 1000);
+                }
+            }
+        }
+    } catch (error) {
+        console.error('❌ Ошибка:', error);
+    }
+}
     showNextLessonPrompt() {
         const currentIndex = this.currentLessons.findIndex(l => l.id === this.currentLesson?.id);
         

@@ -150,74 +150,89 @@ export class UIManager {
         });
     }
 
+
+
+
     showUser(user) {
-        const userControls = document.getElementById("user-controls");
-        if (!userControls) return;
+    console.log('showUser called with:', user);
+    
+    const userControls = document.getElementById("user-controls");
+    if (!userControls) {
+        console.log('userControls not found');
+        return;
+    }
 
-        const roleDisplay = this.getRoleDisplayName(user.role);
-        
-        userControls.innerHTML = `
-            <div class="user-dropdown">
-                <span id="username-display" class="username" style="cursor:pointer;" title="Роль: ${roleDisplay}">
-                    ${user.username} (${roleDisplay}) ▾
-                </span>
-                <div id="user-menu" class="user-menu hidden">
-                    ${user.role === 'admin' ? '<button id="btn-admin-panel" class="ghost">Админ-панель</button>' : ''}
-                    ${user.role === 'teacher' ? '<button id="btn-teacher-panel" class="ghost">Панель преподавателя</button>' : ''}
-                    <button id="btn-change-password" class="ghost">Сменить пароль</button>
-                    <button id="btn-logout" class="ghost">Выйти</button>
-                </div>
+    const roleDisplay = this.getRoleDisplayName(user.role);
+    console.log('Role display:', roleDisplay);
+    
+    userControls.innerHTML = `
+        <div class="user-dropdown">
+            <span id="username-display" class="username" style="cursor:pointer;" title="Роль: ${roleDisplay}">
+                ${user.username} (${roleDisplay}) ▾
+            </span>
+            <div id="user-menu" class="user-menu hidden">
+                ${user.role === 'admin' ? '<button id="btn-admin-panel" class="ghost">Админ-панель</button>' : ''}
+                ${user.role === 'teacher' ? '<button id="btn-teacher-panel" class="ghost">Панель преподавателя</button>' : ''}
+                <button id="btn-change-password" class="ghost">Сменить пароль</button>
+                <button id="btn-logout" class="ghost">Выйти</button>
             </div>
-        `;
+        </div>
+    `;
 
-        const usernameDisplay = document.getElementById("username-display");
-        const userMenu = document.getElementById("user-menu");
-        const btnLogout = document.getElementById("btn-logout");
-        const btnChangePassword = document.getElementById("btn-change-password");
-        const btnAdminPanel = document.getElementById("btn-admin-panel");
-        const btnTeacherPanel = document.getElementById("btn-teacher-panel");
+    const usernameDisplay = document.getElementById("username-display");
+    const userMenu = document.getElementById("user-menu");
+    const btnLogout = document.getElementById("btn-logout");
+    const btnChangePassword = document.getElementById("btn-change-password");
+    const btnAdminPanel = document.getElementById("btn-admin-panel");
+    const btnTeacherPanel = document.getElementById("btn-teacher-panel");
 
-        if (usernameDisplay && userMenu) {
-            usernameDisplay.addEventListener("click", () => {
-                userMenu.classList.toggle("hidden");
-            });
+    if (usernameDisplay && userMenu) {
+        usernameDisplay.addEventListener("click", () => {
+            userMenu.classList.toggle("hidden");
+        });
 
-            document.addEventListener('click', (e) => {
-                if (!userMenu.contains(e.target) && !usernameDisplay.contains(e.target)) {
-                    userMenu.classList.add('hidden');
-                }
-            });
-        }
-
-        if (btnLogout) {
-            btnLogout.addEventListener("click", () => {
-                if (window.app && window.app.authManager) {
-                    window.app.authManager.logout();
-                }
-            });
-        }
-
-        if (btnChangePassword) {
-            btnChangePassword.addEventListener("click", () => {
-                this.showModal('modal-change-password');
-                this.clearForm('change-password-form');
-            });
-        }
-
-        if (btnAdminPanel && user.role === 'admin') {
-            btnAdminPanel.addEventListener("click", () => {
-                this.showSection('admin-panel');
+        document.addEventListener('click', (e) => {
+            if (!userMenu.contains(e.target) && !usernameDisplay.contains(e.target)) {
                 userMenu.classList.add('hidden');
-            });
-        }
+            }
+        });
+    }
 
-            if (btnTeacherPanel && user.role === 'teacher') {
-        btnTeacherPanel.addEventListener("click", () => {
-            this.showSection('teacher-panel'); 
+    if (btnLogout) {
+        btnLogout.addEventListener("click", () => {
+            if (window.app && window.app.authManager) {
+                window.app.authManager.logout();
+            }
+        });
+    }
+
+    if (btnChangePassword) {
+        btnChangePassword.addEventListener("click", () => {
+            this.showModal('modal-change-password');
+            this.clearForm('change-password-form');
+        });
+    }
+
+    if (btnAdminPanel && user.role === 'admin') {
+        btnAdminPanel.addEventListener("click", () => {
+            this.showSection('admin-panel');
             userMenu.classList.add('hidden');
         });
     }
+
+    if (btnTeacherPanel && user.role === 'teacher') {
+        btnTeacherPanel.addEventListener("click", () => {
+            this.showSection('teacher-panel');
+            userMenu.classList.add('hidden');
+        });
     }
+
+    console.log('Calling updateProfile from showUser...');
+    this.updateProfile(user);
+}
+
+
+
     showAuthButtons() {
         const userControls = document.getElementById("user-controls");
         if (!userControls) return;
@@ -250,37 +265,51 @@ export class UIManager {
     }
 
     async updateProfile(user) {
-        console.log('🟢 updateProfile called with user:', user);
-        
-        const profileUsername = document.getElementById("profile-username");
-        const profileEmail = document.getElementById("profile-email");
-        const profileRole = document.getElementById("profile-role");
-        
-        if (profileUsername) profileUsername.textContent = user.username;
-        if (profileEmail) profileEmail.textContent = user.email;
-        if (profileRole) {
-            const roleText = this.getRoleDisplayName(user.role);
-            profileRole.textContent = `Роль: ${roleText}`;
-        }
-        
-        if (window.app && window.app.api) {
-            try {
-                console.log('📊 Загружаем статистику...');
-                const result = await window.app.api.getUserStatistics();
-                console.log('📊 Результат статистики:', result);
-                
-                if (result.success) {
-                    this.updateStatistics(result.statistics);
-                } else {
-                    console.error('Ошибка в ответе статистики:', result.error);
-                }
-            } catch (error) {
-                console.error('❌ Ошибка загрузки статистики:', error);
+    console.log('🔵 updateProfile STARTED with user:', user);
+    
+    const profileUsername = document.getElementById("profile-username");
+    console.log('🔍 profileUsername element:', profileUsername);
+    
+    const profileEmail = document.getElementById("profile-email");
+    console.log('🔍 profileEmail element:', profileEmail);
+    
+    const profileRole = document.getElementById("profile-role");
+    console.log('🔍 profileRole element:', profileRole);
+    
+    if (profileUsername) {
+        profileUsername.textContent = user.username;
+        console.log('✅ Username updated to:', user.username);
+    } else {
+        console.log('❌ profileUsername not found!');
+    }
+    
+    if (profileEmail) {
+        profileEmail.textContent = user.email;
+        console.log('✅ Email updated to:', user.email);
+    }
+    
+    if (profileRole) {
+        const roleText = this.getRoleDisplayName(user.role);
+        profileRole.textContent = `Роль: ${roleText}`;
+        console.log('✅ Role updated to:', roleText);
+    }
+    
+    if (window.app && window.app.api) {
+        try {
+            console.log('📊 Loading statistics...');
+            const result = await window.app.api.getUserStatistics();
+            console.log('📊 Statistics result:', result);
+            
+            if (result.success) {
+                this.updateStatistics(result.statistics);
             }
-        } else {
-            console.log('⏳ app.api еще не готов, статистика не загружена');
+        } catch (error) {
+            console.error('❌ Error loading statistics:', error);
         }
     }
+    
+    console.log('🔵 updateProfile FINISHED');
+}
 
     updateStatistics(stats) {
         console.log('📈 updateStatistics called with:', stats);

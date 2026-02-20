@@ -9,6 +9,7 @@ import { AdminManager } from './components/AdminManager.js';
 import { TeacherManager } from './components/TeacherManager.js';
 import { MyCoursesManager } from './components/MyCoursesManager.js';
 import { SessionManager } from './services/SessionManager.js';
+import { AchievementsManager } from './components/AchievementsManager.js'; 
 
 class LearnBoxApp {
     constructor() {
@@ -56,37 +57,47 @@ class LearnBoxApp {
             this.uiManager,
             this.courseManager
         );
-        
+        this.achievementsManager = new AchievementsManager(
+            this.apiService,
+            this.uiManager
+        );
         window.app = this;
         window.app.api = this.apiService; 
     }
 
     async initialize() {
-        console.log('LearnBox App Initializing...');
+    console.log('LearnBox App Initializing...');
+    
+    try {
+        this.uiManager.initialize();
+        this.initializeValidation();
+        await this.authManager.initialize();
         
-        try {
-            this.uiManager.initialize();
-            this.initializeValidation();
-            await this.authManager.initialize();
-            
-            if (this.authManager.isAuthenticated()) {
-                this.sessionManager.startSessionListener();
-            }
-            
-            this.checkUserRole();
-            await this.courseManager.initialize();
-            this.quizManager.initialize();
-            this.adminManager.initialize();
-            this.teacherManager.initialize();
-            this.setupGlobalNavigation();
-            
-            console.log('LearnBox App Ready');
-            
-        } catch (error) {
-            console.error('Failed to initialize app:', error);
-            this.uiManager.showToast('Ошибка инициализации приложения', 'error');
+        if (this.authManager.isAuthenticated()) {
+            this.sessionManager.startSessionListener();
         }
+        
+        this.checkUserRole();
+        
+        if (this.authManager.isAuthenticated()) {
+            const user = this.authManager.getCurrentUser();
+            this.uiManager.showUser(user);
+            console.log('Пользователь отображен в профиле:', user);
+        }
+        
+        await this.courseManager.initialize();
+        this.quizManager.initialize();
+        this.adminManager.initialize();
+        this.teacherManager.initialize();
+        this.setupGlobalNavigation();
+        await this.achievementsManager.initialize();
+        console.log('LearnBox App Ready');
+        
+    } catch (error) {
+        console.error('Failed to initialize app:', error);
+        this.uiManager.showToast('Ошибка инициализации приложения', 'error');
     }
+}
 
     checkUserRole() {
         const currentUser = this.authManager.getCurrentUser();
@@ -230,11 +241,6 @@ window.openLesson = function(lessonId) {
     if (window.app) {
         window.app.openLesson(lessonId);
     }
-}
-
-if (this.authManager.isAuthenticated()) {
-    const user = this.authManager.getCurrentUser();
-    this.uiManager.showUser(user);
 }
 
 export { LearnBoxApp };

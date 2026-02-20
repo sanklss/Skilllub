@@ -487,4 +487,25 @@ async performTeacherAction(action) {
     });
     return response.json();
 }
+async getUserCertificates() {
+    const response = await this.request('/achievements/certificates');
+    return response.json();
+}
+
+async saveCertificate(certificateData) {
+    const response = await this.request('/achievements/certificates', {
+        method: 'POST',
+        body: JSON.stringify(certificateData)
+    });
+    return response.json();
+}
+
+async getCertificate(certificateId) {
+    const response = await this.request(`/achievements/certificates/${certificateId}`);
+    return response.json();
+}
+async getUser(userId) {
+    const response = await this.request(`/users/${userId}`);
+    return response.json();
+}
 }
