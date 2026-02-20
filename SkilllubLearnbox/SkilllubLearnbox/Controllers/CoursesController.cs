@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SkilllubLearnbox.DTOs;
+using SkilllubLearnbox.Models;
 using SkilllubLearnbox.Services;
 
 namespace SkilllubLearnbox.Controllers;
@@ -45,7 +46,17 @@ public class CoursesController : ControllerBase
                 return NotFound(new { success = false, error = "Курс не найден" });
             }
 
-            return Ok(new { success = true, course });
+            var courseDto = new CourseDto
+            {
+                Id = course.Id,
+                Title = course.Title,
+                Description = course.Description,
+                DifficultyLevel = course.DifficultyLevel,
+                IsPublished = course.IsPublished,
+                CreatedBy = course.CreatedBy 
+            };
+
+            return Ok(new { success = true, course = courseDto });
         }
         catch (Exception ex)
         {
@@ -143,6 +154,30 @@ public class CoursesController : ControllerBase
         {
             _logger.LogError(ex, "Ошибка при получении шаблона кода для урока {LessonId}", lessonId);
             return Problem("Ошибка сервера");
+        }
+    }
+
+    [HttpGet("debug/{courseId}")]
+    public async Task<IActionResult> DebugCourse(string courseId)
+    {
+        try
+        {
+            var course = await _courseService.GetCourseByIdAsync(courseId);
+
+            return Ok(new
+            {
+                success = true,
+                course = new
+                {
+                    id = course?.Id,
+                    title = course?.Title,
+                    created_by = course?.CreatedBy  
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { error = ex.Message });
         }
     }
 }

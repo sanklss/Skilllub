@@ -80,7 +80,8 @@ public class CourseService
                 Title = course.Title,
                 Description = course.Description,
                 DifficultyLevel = course.DifficultyLevel,
-                IsPublished = course.IsPublished
+                IsPublished = course.IsPublished,
+                CreatedBy = course.CreatedBy  
             };
 
             return courseDto;
