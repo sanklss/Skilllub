@@ -263,6 +263,7 @@ public class TeacherService
         {
             await _client.InitializeAsync();
 
+            // Проверяем, что преподаватель имеет доступ к этому уроку
             var lessonResponse = await _client
                 .From<Lesson>()
                 .Filter("id", Operator.Equals, action.LessonId)
@@ -292,6 +293,7 @@ public class TeacherService
                 return false;
             }
 
+            // Выполняем действие
             switch (action.Action?.ToLower())
             {
                 case "complete":
@@ -369,6 +371,103 @@ public class TeacherService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Ошибка сброса прогресса студента");
+        }
+    }
+
+    public async Task<StudentDetailedProgressDto> GetStudentDetailedProgressAsync(string studentId, string courseId)
+    {
+        try
+        {
+            await _client.InitializeAsync();
+
+            var userResponse = await _client
+                .From<User>()
+                .Filter("id", Operator.Equals, studentId)
+                .Get();
+
+            var student = userResponse.Models?.FirstOrDefault();
+            if (student == null)
+                return null;
+
+            var modules = await _courseService.GetCourseModulesAsync(courseId);
+
+            var result = new StudentDetailedProgressDto
+            {
+                UserId = student.Id,
+                Username = student.Username,
+                Email = student.Email,
+                Modules = new List<ModuleDetailDto>()
+            };
+
+            foreach (var module in modules)
+            {
+                var lessons = await _courseService.GetModuleLessonsAsync(module.Id);
+
+                var moduleDto = new ModuleDetailDto
+                {
+                    ModuleId = module.Id,
+                    ModuleTitle = module.Title,
+                    ModuleOrder = module.Order,
+                    Lessons = new List<LessonDetailDto>()
+                };
+
+                foreach (var lesson in lessons)
+                {
+                    var progress = await _progressService.GetUserProgressAsync(studentId, lesson.Id);
+                    var requirements = await _progressService.GetLessonRequirementsAsync(lesson.Id);
+
+                    var submissionsResponse = await _client
+                        .From<Submission>()
+                        .Filter("user_id", Operator.Equals, studentId)
+                        .Filter("lesson_id", Operator.Equals, lesson.Id)
+                        .Order("created_at", Constants.Ordering.Descending)
+                        .Get();
+
+                    var submissions = submissionsResponse.Models?.ToList() ?? new List<Submission>();
+
+                    moduleDto.Lessons.Add(new LessonDetailDto
+                    {
+                        LessonId = lesson.Id,
+                        LessonTitle = lesson.Title,
+                        LessonOrder = lesson.Order,
+                        IsCompleted = progress?.Completed ?? false,
+                        TheoryCompleted = progress?.TheoryCompleted ?? false,
+                        QuizCompleted = progress?.QuizCompleted ?? false,
+                        CodeCompleted = progress?.CodeCompleted ?? false,
+                        BestScore = progress?.BestScore ?? 0,
+                        LastAttempt = progress?.LastAttempt,
+                        HasQuiz = requirements.HasQuiz,
+                        HasCodeExercise = requirements.HasCodeExercise,
+                        Submissions = submissions.Select(s => new SubmissionSimpleDto
+                        {
+                            Id = s.Id,
+                            Status = s.Status,
+                            Score = s.Score,
+                            TestsPassed = s.TestsPassed,
+                            TestsTotal = s.TestsTotal,
+                            CreatedAt = s.CreatedAt
+                        }).ToList()
+                    });
+                }
+
+                moduleDto.IsCompleted = moduleDto.Lessons.All(l => l.IsCompleted);
+                moduleDto.CompletedLessons = moduleDto.Lessons.Count(l => l.IsCompleted);
+                moduleDto.TotalLessons = moduleDto.Lessons.Count;
+
+                result.Modules.Add(moduleDto);
+            }
+
+            result.TotalLessons = result.Modules.Sum(m => m.TotalLessons);
+            result.CompletedLessons = result.Modules.Sum(m => m.CompletedLessons);
+            result.TotalModules = result.Modules.Count;
+            result.CompletedModules = result.Modules.Count(m => m.IsCompleted);
+
+            return result;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Ошибка получения детального прогресса студента {StudentId}", studentId);
+            return null;
         }
     }
 }

@@ -68,5 +68,60 @@ public class TeacherController : ControllerBase
         }
     }
 
+    [HttpGet("students/{studentId}/courses/{courseId}/progress")]
+    public async Task<IActionResult> GetStudentProgress(string studentId, string courseId)
+    {
+        try
+        {
+            var teacherId = User.FindFirst("userId")?.Value;
+            if (string.IsNullOrEmpty(teacherId))
+                return Unauthorized(new { success = false, error = "Пользователь не авторизован" });
 
+            var courseResponse = await _teacherService.GetCourseStudentsAsync(courseId, teacherId);
+            if (courseResponse == null || !courseResponse.Any(s => s.UserId == studentId))
+            {
+                return Forbid();
+            }
+
+            var progress = await _teacherService.GetStudentDetailedProgressAsync(studentId, courseId);
+
+            return Ok(new
+            {
+                success = true,
+                progress
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Ошибка получения прогресса студента");
+            return StatusCode(500, new { success = false, error = "Ошибка сервера" });
+        }
+    }
+
+    [HttpPost("action")]
+    public async Task<IActionResult> PerformAction([FromBody] TeacherActionDto action)
+    {
+        try
+        {
+            var teacherId = User.FindFirst("userId")?.Value;
+            if (string.IsNullOrEmpty(teacherId))
+                return Unauthorized(new { success = false, error = "Пользователь не авторизован" });
+
+            var result = await _teacherService.PerformTeacherActionAsync(teacherId, action);
+
+            if (!result)
+                return BadRequest(new { success = false, error = "Не удалось выполнить действие" });
+
+            return Ok(new
+            {
+                success = true,
+                message = "Действие выполнено успешно"
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Ошибка выполнения действия");
+            return StatusCode(500, new { success = false, error = "Ошибка сервера" });
+        }
+    }
 }
