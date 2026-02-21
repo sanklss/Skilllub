@@ -65,56 +65,66 @@ export class AchievementsManager {
     }
 
     renderCertificatesList(certificates) {
-        if (!certificates || certificates.length === 0) {
-            return `
-                <div class="empty-state" style="text-align: center; padding: 40px;">
-                    <div style="font-size: 64px; margin-bottom: 20px;">🏆</div>
-                    <h3>У вас пока нет сертификатов</h3>
-                    <p class="muted">Завершите курс, чтобы получить свой первый сертификат!</p>
-                </div>
-            `;
-        }
-
+    if (!certificates || certificates.length === 0) {
         return `
-            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 20px;">
-                ${certificates.map(cert => `
-                    <div class="certificate-card" style="background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%); border: 1px solid #e2e8f0; border-radius: 10px; padding: 20px; text-align: center; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
-                        <div style="font-size: 48px; margin-bottom: 15px;">🎓</div>
-                        <h4 style="margin: 10px 0; color: #2d3748;">${cert.courseName}</h4>
-                        <p style="color: #718096; font-size: 14px; margin: 5px 0;">
-                            ${new Date(cert.issuedAt).toLocaleDateString('ru-RU', { year: 'numeric', month: 'long', day: 'numeric' })}
-                        </p>
-                        <p style="font-family: monospace; color: #a0aec0; font-size: 12px; margin: 5px 0 15px 0;">
-                            № ${cert.certificateNumber}
-                        </p>
-                        <button class="btn-primary btn-sm" onclick="app.achievementsManager.viewCertificate('${cert.id}', '${cert.certificateNumber}', '${cert.studentName}', '${cert.courseName}', '${cert.issuedAt}')">
-                            Просмотреть
-                        </button>
-                    </div>
-                `).join('')}
+            <div class="empty-state" style="text-align: center; padding: 40px;">
+                <div style="font-size: 64px; margin-bottom: 20px;">🏆</div>
+                <h3>У вас пока нет сертификатов</h3>
+                <p class="muted">Завершите курс, чтобы получить свой первый сертификат!</p>
             </div>
         `;
     }
+
+    return `
+        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 20px;">
+            ${certificates.map(cert => `
+                <div class="certificate-card" style="background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%); border: 1px solid #e2e8f0; border-radius: 10px; padding: 20px; text-align: center; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
+                    <div style="font-size: 48px; margin-bottom: 15px;">🎓</div>
+                    <h4 style="margin: 10px 0; color: #2d3748;">${cert.courseName}</h4>
+                    <p style="color: #718096; font-size: 14px; margin: 5px 0;">
+                        ${new Date(cert.issuedAt).toLocaleDateString('ru-RU', { year: 'numeric', month: 'long', day: 'numeric' })}
+                    </p>
+                    <p style="font-family: monospace; color: #a0aec0; font-size: 12px; margin: 5px 0 15px 0;">
+                        № ${cert.certificateNumber}
+                    </p>
+                    <button class="btn-primary btn-sm" onclick="app.achievementsManager.viewCertificate(
+                        '${cert.id}', 
+                        '${cert.certificateNumber}', 
+                        '${cert.studentName}', 
+                        '${cert.courseName}', 
+                        '${cert.issuedAt}',
+                        '${cert.teacherName || ''}'  // 👈 ДОБАВЛЯЕМ teacherName!
+                    )">
+                        Просмотреть
+                    </button>
+                </div>
+            `).join('')}
+        </div>
+    `;
+}
 
     viewCertificate(certId, certNumber, studentName, courseName, issuedAt, teacherName = '') {
     const date = new Date(issuedAt);
     const dateStr = date.toISOString().split('T')[0];
     
     window.open(
-        `certificate.html?name=${encodeURIComponent(studentName)}&course=${encodeURIComponent(courseName)}&date=${dateStr}&cert=${certNumber}&teacher=${encodeURIComponent(teacherName)}`,
+        `certificate.html?name=${encodeURIComponent(studentName)}&course=${encodeURIComponent(courseName)}&date=${dateStr}&cert=${certNumber}&teacher=${encodeURIComponent(teacherName || '')}`,
         '_blank'
     );
 }
 
     async saveCertificateForCompletedCourse(userId, courseId, studentName, courseName, teacherName = '') {
-    // Генерируем уникальный номер
     const date = new Date();
     const dateStr = date.toISOString().slice(0,10).replace(/-/g, '');
     const random = Math.random().toString(36).substring(2, 10).toUpperCase();
     const certNumber = `LB-${dateStr}-${random}`;
 
     console.log('📝 Отправляем запрос на создание сертификата:', {
-        courseId, certNumber, studentName, courseName, teacherName
+        courseId, 
+        certNumber, 
+        studentName, 
+        courseName, 
+        teacherName: teacherName || 'Не указан' 
     });
 
     try {
@@ -123,7 +133,7 @@ export class AchievementsManager {
             certificateNumber: certNumber,
             studentName: studentName,
             courseName: courseName,
-            teacherName: teacherName
+            teacherName: teacherName || '' 
         });
 
         console.log('📦 Ответ от сервера:', result);

@@ -1475,7 +1475,6 @@ async onLessonOpened(lessonId) {
             let courseTitle = this.currentCourse?.title;
             let teacherName = '';
             
-            // Получаем данные курса
             console.log('1️⃣ Получаем данные курса...');
             const courseResult = await this.api.getCourse(targetCourseId);
             console.log('2️⃣ Ответ по курсу:', courseResult);
@@ -1483,7 +1482,6 @@ async onLessonOpened(lessonId) {
             if (courseResult.success) {
                 courseTitle = courseResult.course.title;
                 
-                // Получаем преподавателя
                 if (courseResult.course.createdBy) {
                     console.log('3️⃣ ID преподавателя:', courseResult.course.createdBy);
                     const teacherResult = await this.api.getUser(courseResult.course.createdBy);
@@ -1494,9 +1492,11 @@ async onLessonOpened(lessonId) {
                         console.log('5️⃣ Имя преподавателя:', teacherName);
                     } else {
                         console.log('❌ Ошибка получения преподавателя');
+                        teacherName = ''; 
                     }
                 } else {
                     console.log('❌ В курсе нет createdBy');
+                    teacherName = ''; 
                 }
             }
             
@@ -1515,17 +1515,19 @@ async onLessonOpened(lessonId) {
                 console.log('8️⃣ Сертификат сохранён:', certificate);
                 
                 if (certificate) {
+                    const encodedTeacherName = teacherName ? encodeURIComponent(teacherName) : '';
+                    
                     const url = `certificate.html?` +
                         `name=${encodeURIComponent(user.username)}` +
                         `&course=${encodeURIComponent(courseTitle)}` +
                         `&date=${new Date().toISOString().split('T')[0]}` +
                         `&cert=${certificate.certificateNumber}` +
-                        `&teacher=${encodeURIComponent(teacherName)}` +
+                        `&teacher=${encodedTeacherName}` +
                         `&v=${Date.now()}` + 
                         `&r=${Math.random()}`; 
                     
                     console.log('9️⃣ URL для открытия:', url);
-                    console.log('🔟 Преподаватель в URL:', teacherName);
+                    console.log('🔟 Преподаватель в URL:', encodedTeacherName);
                     
                     setTimeout(() => {
                         window.open(url, '_blank');
