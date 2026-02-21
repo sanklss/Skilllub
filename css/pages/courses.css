@@ -152,3 +152,350 @@
 .results-section h3 {
     margin-bottom: 1rem;
 }
+
+.course-access-controls {
+    margin: 2rem 0;
+    padding: 2rem;
+    background-color: var(--bg-secondary);
+    border-radius: var(--border-radius-lg);
+    border: 1px solid var(--border-color);
+    text-align: center;
+}
+
+.course-access-notice {
+    max-width: 500px;
+    margin: 0 auto;
+    text-align: center;
+    padding: 32px 24px;
+}
+
+.lock-icon-large {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    opacity: 0.7;
+}
+
+.lock-icon-medium {
+    font-size: 2rem;
+    margin-bottom: 1rem;
+    opacity: 0.7;
+}
+
+.lock-icon-small {
+    font-size: 0.8rem;
+    margin-left: 0.5rem;
+    opacity: 0.7;
+}
+
+.course-access-notice h3 {
+    margin-bottom: 0.5rem;
+    color: var(--text-primary);
+}
+
+.course-access-notice p {
+    color: var(--text-secondary);
+    margin-bottom: 1.5rem;
+}
+
+.access-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+@media (max-width: 768px) {
+    .access-actions {
+        flex-direction: column;
+    }
+    
+    .access-actions button {
+        width: 100%;
+    }
+}
+
+.course-progress-display {
+    max-width: 500px;
+    margin: 0 auto;
+    padding: 16px;
+}
+
+.progress-bar-large {
+    height: 10px;
+    background-color: var(--border-color);
+    border-radius: 5px;
+    overflow: hidden;
+    margin: 1rem 0;
+}
+
+.progress-bar-large .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--primary), var(--primary-dark));
+    transition: width 0.3s ease;
+}
+
+.module-lock {
+    margin-left: 0.5rem;
+    opacity: 0.7;
+}
+
+.lesson-preview {
+    position: relative;
+}
+
+.lesson-preview-content {
+    max-height: 300px;
+    overflow: hidden;
+    position: relative;
+}
+
+.lesson-preview-content::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 100px;
+    background: linear-gradient(transparent, var(--bg-card));
+}
+
+.preview-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.9);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+}
+
+.overlay-content {
+    text-align: center;
+    padding: 2rem;
+    max-width: 400px;
+}
+
+.overlay-content h4 {
+    margin: 1rem 0 0.5rem;
+    color: var(--text-primary);
+}
+
+.overlay-content p {
+    color: var(--text-secondary);
+    margin-bottom: 1.5rem;
+}
+
+.lesson-completion-message {
+    margin-top: 2rem;
+    padding: 2rem;
+    text-align: center;
+    background: linear-gradient(135deg, #d4edda, #c3e6cb);
+    border-radius: 12px;
+    border: 2px solid #28a745;
+    box-shadow: 0 4px 12px rgba(40, 167, 69, 0.2);
+}
+
+.completion-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    animation: bounce 1s ease infinite;
+}
+
+.lesson-completion-message h3 {
+    color: #155724;
+    margin-bottom: 0.5rem;
+}
+
+.lesson-completion-message p {
+    color: #0c5460;
+    margin-bottom: 1.5rem;
+    font-size: 1.1rem;
+}
+
+.completion-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.lesson-completion-message .btn-primary {
+    background: white;
+    color: #059669;
+}
+
+.lesson-completion-message .btn-secondary {
+    background: rgba(255,255,255,0.2);
+    color: white;
+    border: 1px solid white;
+}
+
+@keyframes bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+}
+
+.code-section {
+    margin: 2rem 0;
+    padding: 1.5rem;
+    background-color: var(--bg-secondary);
+    border-radius: var(--border-radius-lg);
+    border: 1px solid var(--border-color);
+    margin-top: 30px;
+    border-top: 1px solid #e2e8f0;
+    padding-top: 20px;
+}
+
+.editor-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    gap: 12px;
+}
+
+.code-editor {
+    width: 100%;
+    min-height: 200px;
+    padding: 1rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    font-family: var(--font-family-mono);
+    font-size: 0.875rem;
+    line-height: 1.5;
+    background-color: var(--bg-primary);
+    resize: vertical;
+    height: 400px;
+    background: #1e293b;
+    color: #e2e8f0;
+}
+
+#monaco-container {
+    margin-bottom: 12px;
+}
+
+.editor-actions {
+    display: flex;
+    gap: 0.75rem;
+    margin-top: 1rem;
+    gap: 12px;
+}
+
+.input-section {
+    margin-top: 15px;
+}
+
+.input-data {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    font-family: 'Fira Code', monospace;
+    resize: vertical;
+}
+
+.results-section {
+    margin-top: 1.5rem;
+    padding: 1.5rem;
+    background-color: var(--bg-secondary);
+    border-radius: var(--border-radius);
+    border: 1px solid var(--border-color);
+    margin-top: 20px;
+    background: #f8fafc;
+}
+
+.results-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+}
+
+.results-section h3 {
+    margin-bottom: 1rem;
+}
+
+.tests-summary {
+    margin-bottom: 20px;
+}
+
+.summary-stats {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 8px;
+    color: #4b5563;
+    font-size: 0.9rem;
+}
+
+.test-result {
+    margin-bottom: 12px;
+    padding: 12px;
+    border-radius: 6px;
+    border-left: 4px solid;
+}
+
+.test-result.passed {
+    background: #f0fdf4;
+    border-left-color: #10b981;
+}
+
+.test-result.failed {
+    background: #fef2f2;
+    border-left-color: #ef4444;
+}
+
+.test-result.hidden-test {
+    background: #f3f4f6;
+    border-left-color: #9ca3af;
+}
+
+.test-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.test-status {
+    font-size: 1.2rem;
+    margin-right: 8px;
+}
+
+.test-details {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px dashed #e2e8f0;
+}
+
+.test-details pre {
+    background: #1e293b;
+    color: #e2e8f0;
+    padding: 8px;
+    border-radius: 4px;
+    overflow-x: auto;
+    margin: 8px 0;
+    font-size: 0.85rem;
+}
+
+.execution-output,
+.execution-error {
+    margin-top: 16px;
+}
+
+.execution-output pre,
+.execution-error pre {
+    background: #1e293b;
+    color: #e2e8f0;
+    padding: 12px;
+    border-radius: 6px;
+    overflow-x: auto;
+    font-family: 'Fira Code', monospace;
+}
+
+.execution-time {
+    color: #6b7280;
+    font-size: 0.9rem;
+}

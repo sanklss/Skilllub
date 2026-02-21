@@ -43,3 +43,40 @@
     background-color: transparent;
     color: var(--text-secondary);
 }
+
+.header-nav {
+    display: flex;
+    gap: 0.25rem;
+}
+
+.nav-item {
+    padding: 0.5rem 1rem;
+    font-weight: 500;
+    color: #4a5568;  
+    border-radius: 20px;
+    transition: all 0.2s ease;
+    font-size: 0.95rem;
+    text-decoration: none;
+    border: none;
+    background: none;
+    cursor: pointer;
+}
+
+.nav-item:hover {
+    color: #1a202c; 
+    background-color: #edf2f7;  
+}
+
+.nav-item.active {
+    color: #1a202c;  
+    font-weight: 600;
+    background-color: #e2e8f0; 
+}
+
+.nav-item:focus {
+    outline: none;
+}
+
+.nav-item:active {
+    transform: none;
+}

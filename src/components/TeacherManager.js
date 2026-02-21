@@ -331,22 +331,26 @@ export class TeacherManager {
             modal.className = 'modal';
             
             modal.innerHTML = `
-                <div class="modal-card" style="max-width: 800px; width: 90%;">
-                    <header>
-                        <h3>Прогресс студента: <span id="modal-student-name"></span></h3>
-                        <button class="close-btn" onclick="document.getElementById('student-progress-modal').classList.add('hidden')">✕</button>
-                    </header>
-                    <div class="modal-content">
-                        <div class="student-info" style="margin-bottom: 20px; padding: 15px; background: #f7fafc; border-radius: 8px;">
-                            <p><strong>Email:</strong> <span id="modal-student-email"></span></p>
-                            <p><strong>Всего уроков:</strong> <span id="modal-total-lessons">0</span> | 
-                               <strong>Пройдено:</strong> <span id="modal-completed-lessons">0</span> | 
-                               <strong>Прогресс:</strong> <span id="modal-progress-percent">0%</span></p>
+                <div class="modal-card" style="max-width: 900px; width: 95%; max-height: 85vh; overflow-y: auto;">
+                    <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; padding: 20px; border-bottom: 1px solid var(--border-color); position: sticky; top: 0; background: white; z-index: 10;">
+                        <h3 style="margin: 0;">Прогресс студента: <span id="modal-student-name"></span></h3>
+                        <button class="btn-close" onclick="document.getElementById('student-progress-modal').classList.add('hidden')" style="background: none; border: none; font-size: 24px; cursor: pointer;">✕</button>
+                    </div>
+                    
+                    <div class="modal-content" style="padding: 20px;">
+                        <div class="student-summary" style="background: linear-gradient(135deg, #f8f9fa, #e9ecef); padding: 20px; border-radius: 12px; margin-bottom: 24px;">
+                            <div style="display: flex; gap: 30px; flex-wrap: wrap;">
+                                <div><strong>Email:</strong> <span id="modal-student-email"></span></div>
+                                <div><strong>Всего уроков:</strong> <span id="modal-total-lessons">0</span></div>
+                                <div><strong>Пройдено:</strong> <span id="modal-completed-lessons">0</span></div>
+                                <div><strong>Прогресс:</strong> <span id="modal-progress-percent">0%</span></div>
+                            </div>
+                            <div class="progress-bar-large" style="height: 8px; background: #e0e0e0; border-radius: 4px; margin-top: 15px;">
+                                <div class="progress-fill" id="modal-progress-bar" style="height: 100%; background: linear-gradient(90deg, var(--primary-color), #1d4ed8); border-radius: 4px; width: 0%; transition: width 0.3s;"></div>
+                            </div>
                         </div>
                         
-                        <div id="modal-modules-list" class="modules-progress">
-                            <!-- Сюда загрузятся модули -->
-                        </div>
+                        <div id="modal-modules-list" class="modules-progress" style="display: flex; flex-direction: column; gap: 20px;"></div>
                     </div>
                 </div>
             `;
@@ -354,6 +358,7 @@ export class TeacherManager {
             document.body.appendChild(modal);
         }
 
+        // Заполняем данные студента
         document.getElementById('modal-student-name').textContent = progress.username;
         document.getElementById('modal-student-email').textContent = progress.email;
         document.getElementById('modal-total-lessons').textContent = progress.totalLessons || 0;
@@ -363,65 +368,36 @@ export class TeacherManager {
             ? Math.round((progress.completedLessons / progress.totalLessons) * 100) 
             : 0;
         document.getElementById('modal-progress-percent').textContent = percent + '%';
+        document.getElementById('modal-progress-bar').style.width = percent + '%';
 
+        // Рендерим модули
         const modulesContainer = document.getElementById('modal-modules-list');
         
         if (!progress.modules || progress.modules.length === 0) {
-            modulesContainer.innerHTML = '<p class="muted">Нет данных о прогрессе</p>';
+            modulesContainer.innerHTML = '<p class="muted" style="text-align: center; padding: 40px;">Нет данных о прогрессе</p>';
         } else {
             modulesContainer.innerHTML = progress.modules.map(module => `
-                <div class="module-card" style="margin-bottom: 20px; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;">
-                    <div class="module-header" style="padding: 12px 15px; background: #edf2f7; cursor: pointer; display: flex; justify-content: space-between; align-items: center;"
+                <div class="module-progress-card" style="border: 1px solid var(--border-color); border-radius: 12px; overflow: hidden; background: white;">
+                    <div class="module-header" style="padding: 16px 20px; background: linear-gradient(135deg, #f8f9fa, #e9ecef); cursor: pointer; display: flex; justify-content: space-between; align-items: center;" 
                          onclick="this.nextElementSibling.classList.toggle('hidden')">
                         <div>
-                            <strong>${module.moduleTitle}</strong>
-                            <span style="margin-left: 10px; font-size: 0.9em; color: #718096;">
-                                ${module.completedLessons || 0}/${module.totalLessons || 0} уроков
-                            </span>
-                        </div>
-                        <span>${module.isCompleted ? '✅' : '⏳'}</span>
-                    </div>
-                    <div class="module-lessons hidden" style="padding: 10px;">
-                        ${module.lessons.map(lesson => `
-                            <div class="lesson-item" style="padding: 10px; margin: 5px 0; background: #f8fafc; border-radius: 4px; border-left: 4px solid ${lesson.isCompleted ? '#48bb78' : '#cbd5e0'};">
-                                <div style="display: flex; justify-content: space-between; align-items: center;">
-                                    <div>
-                                        <strong>${lesson.lessonOrder}. ${lesson.lessonTitle}</strong>
-                                        <div style="font-size: 0.9em; color: #4a5568;">
-                                            ${lesson.theoryCompleted ? '📖 Теория ✓' : '📖 Теория ✗'}
-                                            ${lesson.hasQuiz ? (lesson.quizCompleted ? ' 📝 Квиз ✓' : ' 📝 Квиз ✗') : ''}
-                                            ${lesson.hasCodeExercise ? (lesson.codeCompleted ? ' 💻 Код ✓' : ' 💻 Код ✗') : ''}
-                                        </div>
-                                        ${lesson.bestScore > 0 ? `<div style="font-size: 0.9em; color: #718096;">Лучший результат: ${lesson.bestScore}%</div>` : ''}
-                                    </div>
-                                    <span style="font-size: 1.2em;">${lesson.isCompleted ? '✅' : '❌'}</span>
-                                </div>
-                                
-                                ${lesson.submissions && lesson.submissions.length > 0 ? `
-                                    <details style="margin-top: 8px;">
-                                        <summary style="color: #4299e1; cursor: pointer; font-size: 0.9em;">Последние попытки (${lesson.submissions.length})</summary>
-                                        <div style="margin-top: 8px; padding: 8px; background: white; border-radius: 4px;">
-                                            ${lesson.submissions.map(sub => `
-                                                <div style="padding: 5px; border-bottom: 1px solid #e2e8f0; font-size: 0.85em;">
-                                                    ${new Date(sub.createdAt).toLocaleString()}
-                                                    ${sub.testsTotal ? ` - Тесты: ${sub.testsPassed}/${sub.testsTotal}` : ''}
-                                                    ${sub.score ? ` - Оценка: ${sub.score}%` : ''}
-                                                </div>
-                                            `).join('')}
-                                        </div>
-                                    </details>
-                                ` : ''}
-                                
-                                <div style="margin-top: 8px; display: flex; gap: 8px;">
-                                    <button class="btn-secondary btn-xs" onclick="app.teacherManager.markLessonCompleted('${progress.userId}', '${lesson.lessonId}')">
-                                        ✓ Завершить
-                                    </button>
-                                    <button class="btn-warning btn-xs" onclick="app.teacherManager.resetLesson('${progress.userId}', '${lesson.lessonId}')">
-                                        ↻ Сбросить
-                                    </button>
-                                </div>
+                            <h4 style="margin: 0; font-size: 1.1rem;">${module.moduleTitle}</h4>
+                            <div style="font-size: 0.9rem; color: var(--text-secondary); margin-top: 4px;">
+                                Прогресс: ${module.completedLessons || 0}/${module.totalLessons || 0} уроков
                             </div>
-                        `).join('')}
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 15px;">
+                            <span style="font-size: 0.9rem; font-weight: 600; color: ${module.isCompleted ? '#28a745' : '#6c757d'};">
+                                ${module.isCompleted ? '✅ Завершен' : '⏳ В процессе'}
+                            </span>
+                            <span style="font-size: 20px;">▼</span>
+                        </div>
+                    </div>
+                    
+                    <div class="module-lessons" style="padding: 16px;">
+                        ${module.lessons.map(lesson => 
+                            this.renderLessonProgress(lesson, progress.userId)
+                        ).join('')}
                     </div>
                 </div>
             `).join('');
@@ -430,10 +406,65 @@ export class TeacherManager {
         modal.classList.remove('hidden');
     }
 
+    // Метод для рендера одного урока
+    renderLessonProgress(lesson, studentId) {
+        // Определяем статус
+        let statusClass = '';
+        let statusText = '';
+        let statusColor = '';
+        
+        if (lesson.isCompleted) {
+            statusClass = 'completed';
+            statusText = '✅ Завершен';
+            statusColor = '#28a745';
+        } else if (lesson.theoryCompleted || lesson.quizCompleted || lesson.codeCompleted) {
+            statusClass = 'in-progress';
+            statusText = '⏳ В процессе';
+            statusColor = '#ffc107';
+        } else {
+            statusClass = 'not-started';
+            statusText = '📝 Не начат';
+            statusColor = '#6c757d';
+        }
+
+        return `
+            <div class="lesson-progress-item" style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; margin: 8px 0; background: #f8f9fa; border-radius: 10px; border-left: 4px solid ${statusColor};">
+                <div style="display: flex; align-items: center; gap: 12px; flex: 1;">
+                    <span style="font-weight: 600; color: var(--text-secondary); min-width: 30px;">${lesson.lessonOrder}.</span>
+                    <span style="font-weight: 500;">${lesson.lessonTitle}</span>
+                </div>
+                
+                <div style="display: flex; align-items: center; gap: 20px;">
+                    <span style="font-size: 0.9rem; color: ${statusColor}; font-weight: 500; min-width: 100px;">
+                        ${statusText}
+                    </span>
+                    
+                    <div style="display: flex; gap: 8px;">
+                        <button class="btn-primary btn-sm" onclick="app.teacherManager.markLessonCompleted('${studentId}', '${lesson.lessonId}')">
+                            Завершить
+                        </button>
+                        <button class="btn-secondary btn-sm" onclick="app.teacherManager.resetLesson('${studentId}', '${lesson.lessonId}')">
+                            Сбросить
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
     async markLessonCompleted(studentId, lessonId) {
+        // Добавляем проверку входных данных
+        if (!studentId || !lessonId) {
+            console.error('❌ Ошибка: отсутствуют ID', { studentId, lessonId });
+            this.uiManager.showToast('Ошибка: не указан ID урока или студента', 'error');
+            return;
+        }
+
         if (!confirm('Отметить урок как завершенный для этого студента?')) return;
         
         try {
+            console.log('🔍 Отправка запроса на завершение урока:', { studentId, lessonId });
+            
             const result = await this.api.performTeacherAction({
                 userId: studentId,
                 lessonId: lessonId,
@@ -443,6 +474,8 @@ export class TeacherManager {
             if (result.success) {
                 this.uiManager.showToast('Урок отмечен как завершенный', 'success');
                 this.viewStudentProgress(studentId); 
+            } else {
+                this.uiManager.showToast('Ошибка при выполнении действия', 'error');
             }
         } catch (error) {
             console.error('Ошибка:', error);
@@ -451,9 +484,18 @@ export class TeacherManager {
     }
 
     async resetLesson(studentId, lessonId) {
+        // Добавляем проверку входных данных
+        if (!studentId || !lessonId) {
+            console.error('❌ Ошибка: отсутствуют ID', { studentId, lessonId });
+            this.uiManager.showToast('Ошибка: не указан ID урока или студента', 'error');
+            return;
+        }
+
         if (!confirm('Сбросить прогресс урока для этого студента? Это действие нельзя отменить.')) return;
         
         try {
+            console.log('🔍 Отправка запроса на сброс урока:', { studentId, lessonId });
+            
             const result = await this.api.performTeacherAction({
                 userId: studentId,
                 lessonId: lessonId,
@@ -463,6 +505,8 @@ export class TeacherManager {
             if (result.success) {
                 this.uiManager.showToast('Прогресс урока сброшен', 'success');
                 this.viewStudentProgress(studentId); 
+            } else {
+                this.uiManager.showToast('Ошибка при выполнении действия', 'error');
             }
         } catch (error) {
             console.error('Ошибка:', error);
