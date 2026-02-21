@@ -925,7 +925,7 @@ async completeLessonAutomatically(lessonId) {
         }
     }
 
-    async runCode() {
+async runCode() {
     if (!this.isUserEnrolled) {
         this.uiManager.showToast('Запишитесь на курс, чтобы выполнять задания', 'warning');
         return;
@@ -935,9 +935,6 @@ async completeLessonAutomatically(lessonId) {
     const language = document.getElementById('language-select').value;
     const inputData = document.getElementById('input-data')?.value || '';
     
-    console.log('Запуск кода:', code);
-    console.log('Входные данные:', inputData);
-    
     if (!code || code.trim() === '') {
         this.uiManager.showToast('Напишите код перед запуском', 'warning');
         return;
@@ -946,21 +943,51 @@ async completeLessonAutomatically(lessonId) {
     try {
         this.uiManager.showButtonLoading('run-code', true);
         
-        const result = await this.api.runCode(code, language, inputData);
+        let outputSection = document.getElementById('code-output-section');
+        if (!outputSection) {
+            outputSection = document.createElement('div');
+            outputSection.id = 'code-output-section';
+            outputSection.className = 'code-output';
+            
+            const codeSection = document.querySelector('.code-section');
+            if (codeSection && codeSection.parentNode) {
+                codeSection.parentNode.insertBefore(outputSection, codeSection.nextSibling);
+            }
+        }
         
-        console.log('Результат выполнения:', result);
+        outputSection.classList.remove('hidden');
+        outputSection.innerHTML = `<div class="output-content">⏳ Выполняется...</div>`;
         
-        this.showTestResults(result);
+        const response = await this.api.runCode(code, language, inputData);
+        const result = response.result || response;
+        
+        let outputText = result.output || 'Код выполнен без вывода';
+        
+        outputSection.innerHTML = `<div class="output-content">${outputText}</div>`;
         
         this.uiManager.showButtonLoading('run-code', false);
         
     } catch (error) {
-        console.error('Ошибка при выполнении кода:', error);
-        this.uiManager.showToast('Ошибка при выполнении кода', 'error');
+        console.error('Ошибка:', error);
+        
+        const outputSection = document.getElementById('code-output-section');
+        if (outputSection) {
+            outputSection.innerHTML = `<div class="output-content">${error.message}</div>`;
+        }
+        
         this.uiManager.showButtonLoading('run-code', false);
     }
 }
 
+escapeHtml(text) {
+    if (!text) return '';
+    return String(text)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
     resetCode() {
         if (!this.isUserEnrolled) {
             this.uiManager.showToast('Запишитесь на курс, чтобы выполнять задания', 'warning');
@@ -988,17 +1015,7 @@ async completeLessonAutomatically(lessonId) {
     
     const code = codeEditor.value;
     const language = document.getElementById('language-select')?.value || 'python';
-    
     const inputData = document.getElementById('input-data')?.value || '';
-    console.log('📝 Input data:', inputData);
-    
-    console.log('📝 Code to submit:', { 
-        lessonId: this.currentLesson?.id,
-        language,
-        inputLength: inputData.length,
-        codeLength: code.length,
-        codePreview: code.substring(0, 50) + '...'
-    });
     
     if (!this.currentLesson) {
         console.log('🔴 No current lesson');
@@ -1015,38 +1032,55 @@ async completeLessonAutomatically(lessonId) {
     try {
         this.uiManager.showButtonLoading('submit-code', true);
         
-        console.log('🟡 Calling API.runCodeTests...');
+        // ===== 1. СНАЧАЛА ЗАПУСКАЕМ КОД (как при нажатии "Запустить код") =====
+        const runResponse = await this.api.runCode(code, language, inputData);
+        const runResult = runResponse.result || runResponse;
         
-        const result = await this.api.runCodeTests(
+        // Показываем вывод программы
+        let outputSection = document.getElementById('code-output-section');
+        if (!outputSection) {
+            outputSection = document.createElement('div');
+            outputSection.id = 'code-output-section';
+            outputSection.className = 'code-output';
+            
+            const codeSection = document.querySelector('.code-section');
+            if (codeSection && codeSection.parentNode) {
+                codeSection.parentNode.insertBefore(outputSection, codeSection.nextSibling);
+            }
+        }
+        
+        outputSection.classList.remove('hidden');
+        let programOutput = runResult.output || 'Код выполнен без вывода';
+        outputSection.innerHTML = `<div class="output-content">${programOutput}</div>`;
+        
+        // ===== 2. ТЕПЕРЬ ЗАПУСКАЕМ ТЕСТЫ =====
+        const testResponse = await this.api.runCodeTests(
             this.currentLesson.id, 
             code, 
             language,
             inputData  
         );
         
-        console.log('🟢 API response received:', result);
+        console.log('🟢 API response received:', testResponse);
         
         this.uiManager.showButtonLoading('submit-code', false);
         
-        if (result.success && result.result) {
-            console.log('✅ Result:', result.result);
+        if (testResponse.success && testResponse.result) {
+            // Показываем результаты тестов
+            this.showTestResults(testResponse.result);
             
-            this.showTestResults(result.result);
-            
-            if (result.result.passedTests === result.result.totalTests && 
-                result.result.totalTests > 0) {
+            if (testResponse.result.passedTests === testResponse.result.totalTests && 
+                testResponse.result.totalTests > 0) {
                 
                 this.uiManager.showToast('🎉 Задание выполнено! Урок завершен.', 'success');
-                
                 await this.refreshLessonStatus(this.currentLesson.id);
-                
                 await this.checkAndUpdateModuleCompletion();
             } else {
-                this.uiManager.showToast(`❌ Пройдено ${result.result.passedTests || 0} из ${result.result.totalTests || 0} тестов`, 'warning');
+                this.uiManager.showToast(`❌ Пройдено ${testResponse.result.passedTests || 0} из ${testResponse.result.totalTests || 0} тестов`, 'warning');
             }
         } else {
-            console.log('🔴 API returned error:', result.error);
-            this.uiManager.showToast(result.error || 'Ошибка при проверке кода', 'error');
+            console.log('🔴 API returned error:', testResponse.error);
+            this.uiManager.showToast(testResponse.error || 'Ошибка при проверке кода', 'error');
         }
     } catch (error) {
         console.error('🔴 Exception in submitCode:', error);
