@@ -261,16 +261,69 @@ public class TeacherService
     {
         try
         {
-            await _client.InitializeAsync();
+            _logger.LogWarning("========== ДЕЙСТВИЕ ПРЕПОДАВАТЕЛЯ ==========");
+            _logger.LogWarning("TeacherId: {TeacherId}", teacherId);
+            _logger.LogWarning("Action object is null? {IsNull}", action == null);
 
-            // Проверяем, что преподаватель имеет доступ к этому уроку
+            if (action != null)
+            {
+                _logger.LogWarning("Action.UserId: '{UserId}' (type: {Type})",
+                    action.UserId, action.UserId?.GetType());
+                _logger.LogWarning("Action.LessonId: '{LessonId}' (type: {Type})",
+                    action.LessonId, action.LessonId?.GetType());
+                _logger.LogWarning("Action.Action: '{Action}'", action.Action);
+
+                _logger.LogWarning("UserId is empty? {IsEmpty}", string.IsNullOrEmpty(action.UserId));
+                _logger.LogWarning("LessonId is empty? {IsEmpty}", string.IsNullOrEmpty(action.LessonId));
+
+                bool isValidUserId = Guid.TryParse(action.UserId, out _);
+                bool isValidLessonId = Guid.TryParse(action.LessonId, out _);
+                _logger.LogWarning("UserId is valid GUID? {IsValid}", isValidUserId);
+                _logger.LogWarning("LessonId is valid GUID? {IsValid}", isValidLessonId);
+            }
+            _logger.LogWarning("==============================================");
+
+            if (action == null)
+            {
+                _logger.LogWarning("Action is null");
+                return false;
+            }
+
+            if (string.IsNullOrEmpty(action.UserId))
+            {
+                _logger.LogWarning("UserId is null or empty");
+                return false;
+            }
+
+            if (string.IsNullOrEmpty(action.LessonId))
+            {
+                _logger.LogWarning("LessonId is null or empty");
+                return false;
+            }
+
+            if (!Guid.TryParse(action.UserId, out _))
+            {
+                _logger.LogWarning("UserId is not a valid GUID: {UserId}", action.UserId);
+                return false;
+            }
+
+            if (!Guid.TryParse(action.LessonId, out _))
+            {
+                _logger.LogWarning("LessonId is not a valid GUID: {LessonId}", action.LessonId);
+                return false;
+            }
+
             var lessonResponse = await _client
                 .From<Lesson>()
                 .Filter("id", Operator.Equals, action.LessonId)
                 .Get();
 
             var lesson = lessonResponse.Models?.FirstOrDefault();
-            if (lesson == null) return false;
+            if (lesson == null)
+            {
+                _logger.LogWarning("Lesson {LessonId} not found", action.LessonId);
+                return false;
+            }
 
             var moduleResponse = await _client
                 .From<Module>()
@@ -278,7 +331,11 @@ public class TeacherService
                 .Get();
 
             var module = moduleResponse.Models?.FirstOrDefault();
-            if (module == null) return false;
+            if (module == null)
+            {
+                _logger.LogWarning("Module for lesson {LessonId} not found", action.LessonId);
+                return false;
+            }
 
             var courseResponse = await _client
                 .From<Course>()
@@ -293,7 +350,9 @@ public class TeacherService
                 return false;
             }
 
-            // Выполняем действие
+            _logger.LogInformation("✅ Выполняем действие {Action} для студента {UserId}, урока {LessonId}",
+                action.Action, action.UserId, action.LessonId);
+
             switch (action.Action?.ToLower())
             {
                 case "complete":
@@ -331,7 +390,7 @@ public class TeacherService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Ошибка выполнения действия преподавателя");
+            _logger.LogError(ex, "❌ Ошибка выполнения действия преподавателя");
             return false;
         }
     }
