@@ -7,6 +7,7 @@ export class TeacherCourseCreator {
         this.currentLessonId = null;
         this.modules = [];
         this.currentCourseData = null;
+        this.baseUrl = 'https://localhost:7000';
     }
 
     initialize() {
@@ -74,16 +75,58 @@ export class TeacherCourseCreator {
                 this.saveCourseTemplate();
                 return;
             }
+
+            if (target.id === 'publish-course-btn') {
+                e.preventDefault();
+                this.publishCourse();
+                return;
+            }
+
+            if (target.id === 'add-test-case') {
+                e.preventDefault();
+                this.addTestCase();
+                return;
+            }
+
+            if (target.classList.contains('remove-test')) {
+                e.preventDefault();
+                const testCase = target.closest('.test-case');
+                if (testCase) {
+                    testCase.remove();
+                    this.updateTestNumbers();
+                }
+                return;
+            }
+
+            if (target.classList.contains('edit-lesson-btn')) {
+                e.preventDefault();
+                const courseId = target.dataset.courseId;
+                const lessonId = target.dataset.lessonId;
+                const hasQuiz = target.dataset.hasQuiz === 'true';
+                const hasCode = target.dataset.hasCode === 'true';
+                this.openLessonEditor(courseId, lessonId, hasQuiz, hasCode);
+                return;
+            }
+
+            if (target.id === 'save-lesson-btn') {
+                e.preventDefault();
+                this.saveLessonContent();
+                return;
+            }
+
+            if (target.classList.contains('tab-btn')) {
+                e.preventDefault();
+                const tabName = target.dataset.tab;
+                this.switchTab(tabName);
+                return;
+            }
         });
 
         document.addEventListener('change', (e) => {
             const target = e.target;
             
             if (target.classList.contains('module-title-input')) {
-                const moduleCard = target.closest('.module-card');
-                if (moduleCard) {
-                    console.log('📝 изменение названия модуля:', target.value);
-                }
+                console.log('📝 изменение названия модуля:', target.value);
                 return;
             }
             
@@ -353,11 +396,19 @@ export class TeacherCourseCreator {
     }
 
     async saveCourseTemplate() {
-        const title = document.getElementById('course-title')?.value;
-        if (!title) {
-            this.uiManager.showToast('Введите название курса', 'warning');
-            return;
-        }
+    const title = document.getElementById('course-title')?.value;
+    if (!title) {
+        this.uiManager.showToast('Введите название курса', 'warning');
+        return;
+    }
+
+    const token = localStorage.getItem('authToken');
+    console.log('Токен:', token);
+    
+    if (!token) {
+        this.uiManager.showToast('Ошибка авторизации. Войдите заново.', 'error');
+        return;
+    }
 
         const modules = [];
         const container = document.getElementById('modules-list');
@@ -404,7 +455,7 @@ export class TeacherCourseCreator {
             this.uiManager.showButtonLoading('save-course-template', true);
             
             const token = localStorage.getItem('authToken');
-            const response = await fetch('https://localhost:7000/api/teacher-course/create-template', {
+            const response = await fetch(`${this.baseUrl}/api/teacher-course/create-template`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -432,46 +483,74 @@ export class TeacherCourseCreator {
     }
 
     async showCourseEditor(courseId) {
-        try {
-            const token = localStorage.getItem('authToken');
-            const response = await fetch(`/api/teacher/courses/${courseId}/structure`, {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
-            
-            const result = await response.json();
-            
-            if (result.success) {
-                this.currentCourseData = result.structure;
-                this.renderCourseEditor(result.structure);
+    console.log('📝 showCourseEditor для курса:', courseId);
+    try {
+        const token = localStorage.getItem('authToken');
+        const response = await fetch(`${this.baseUrl}/api/teacher-course/${courseId}/structure`, {
+            headers: {
+                'Authorization': `Bearer ${token}`
             }
-        } catch (error) {
-            console.error('Ошибка загрузки структуры:', error);
+        });
+        
+        const result = await response.json();
+        console.log('📥 Ответ от сервера:', result);
+        
+        if (result.success && result.structure) {
+            this.currentCourseData = result.structure;
+            this.renderCourseEditor(result.structure);
+        } else {
+            console.error('❌ Структура не получена:', result);
+            this.uiManager.showToast('Ошибка загрузки структуры курса', 'error');
         }
+    } catch (error) {
+        console.error('❌ Ошибка загрузки структуры:', error);
+        this.uiManager.showToast('Ошибка загрузки структуры курса', 'error');
     }
+}
 
     renderCourseEditor(structure) {
-        const modal = document.getElementById('modal-course-editor');
-        if (!modal) return;
+    console.log('📝 renderCourseEditor, структура:', structure);
+    
+    const modal = document.getElementById('modal-course-editor');
+    if (!modal) {
+        console.error('❌ modal-course-editor не найден');
+        return;
+    }
+    
+    if (!structure || !structure.course) {
+        console.error('❌ Неверная структура:', structure);
+        return;
+    }
+    
+    document.getElementById('editor-course-title').textContent = structure.course.title || 'Без названия';
+    
+    const container = document.getElementById('course-structure-container');
+    if (!container) {
+        console.error('❌ course-structure-container не найден');
+        return;
+    }
+    
+    container.innerHTML = '';
+    
+    if (!structure.modules || structure.modules.length === 0) {
+        container.innerHTML = '<p class="muted">В курсе нет модулей</p>';
+        modal.classList.remove('hidden');
+        return;
+    }
+    
+    structure.modules.forEach((module) => {
+        const moduleDiv = document.createElement('div');
+        moduleDiv.className = 'editor-module';
+        moduleDiv.style.cssText = 'border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 20px; background: #f8fafc;';
         
-        document.getElementById('editor-course-title').textContent = structure.course.title;
+        let moduleHtml = `
+            <div style="padding: 15px; border-bottom: 1px solid #e2e8f0; background: #f1f5f9; border-radius: 8px 8px 0 0;">
+                <h4 style="margin: 0;">${module.title || 'Без названия'}</h4>
+            </div>
+            <div style="padding: 15px;">
+        `;
         
-        const container = document.getElementById('course-structure-container');
-        container.innerHTML = '';
-        
-        structure.modules.forEach((module) => {
-            const moduleDiv = document.createElement('div');
-            moduleDiv.className = 'editor-module';
-            moduleDiv.style.cssText = 'border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 20px; background: #f8fafc;';
-            
-            let moduleHtml = `
-                <div style="padding: 15px; border-bottom: 1px solid #e2e8f0; background: #f1f5f9; border-radius: 8px 8px 0 0;">
-                    <h4 style="margin: 0;">${module.title}</h4>
-                </div>
-                <div style="padding: 15px;">
-            `;
-            
+        if (module.lessons && module.lessons.length > 0) {
             module.lessons.forEach((lesson) => {
                 let badges = '';
                 if (lesson.hasTheory) {
@@ -487,31 +566,37 @@ export class TeacherCourseCreator {
                 moduleHtml += `
                     <div style="border: 1px solid #e2e8f0; border-radius: 5px; margin-bottom: 15px; background: white;">
                         <div style="padding: 10px 15px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;">
-                            <h5 style="margin: 0;">${lesson.title}</h5>
+                            <h5 style="margin: 0;">${lesson.title || 'Без названия'}</h5>
                             <div>${badges}</div>
                         </div>
                         <div style="padding: 15px;">
                             <button class="btn-secondary btn-sm edit-lesson-btn" 
                                 data-course-id="${structure.course.id}" 
                                 data-lesson-id="${lesson.id}" 
-                                data-has-quiz="${lesson.hasQuiz}" 
-                                data-has-code="${lesson.hasCode}">
+                                data-has-quiz="${lesson.hasQuiz || false}" 
+                                data-has-code="${lesson.hasCode || false}">
                                 Редактировать урок
                             </button>
                         </div>
                     </div>
                 `;
             });
-            
-            moduleHtml += '</div>';
-            moduleDiv.innerHTML = moduleHtml;
-            container.appendChild(moduleDiv);
-        });
+        } else {
+            moduleHtml += '<p class="muted">Нет уроков</p>';
+        }
         
-        modal.classList.remove('hidden');
-    }
+        moduleHtml += '</div>';
+        moduleDiv.innerHTML = moduleHtml;
+        container.appendChild(moduleDiv);
+    });
+    
+    modal.classList.remove('hidden');
+    console.log('✅ Редактор курса открыт');
+}
 
-    async editLesson(courseId, lessonId, hasQuiz, hasCode) {
+    async openLessonEditor(courseId, lessonId, hasQuiz, hasCode) {
+        console.log('📝 Открытие редактора урока:', { courseId, lessonId, hasQuiz, hasCode });
+        
         const modal = document.getElementById('modal-lesson-editor');
         if (!modal) return;
         
@@ -519,13 +604,21 @@ export class TeacherCourseCreator {
         document.getElementById('lesson-editor-lesson-id').value = lessonId;
         document.getElementById('lesson-editor-title').textContent = 'Редактирование урока';
         
-        this.switchTab('theory');
-        
+        const theoryTabBtn = document.getElementById('tab-theory-btn');
         const quizTabBtn = document.getElementById('tab-quiz-btn');
         const codeTabBtn = document.getElementById('tab-code-btn');
         
+        if (theoryTabBtn) theoryTabBtn.style.display = 'inline-block';
         if (quizTabBtn) quizTabBtn.style.display = hasQuiz ? 'inline-block' : 'none';
         if (codeTabBtn) codeTabBtn.style.display = hasCode ? 'inline-block' : 'none';
+        
+        if (hasQuiz) {
+            this.switchTab('quiz');
+        } else if (hasCode) {
+            this.switchTab('code');
+        } else {
+            this.switchTab('theory');
+        }
         
         document.getElementById('theory-content').value = '';
         document.getElementById('quiz-question').value = '';
@@ -536,80 +629,101 @@ export class TeacherCourseCreator {
         document.getElementById('quiz-correct').value = '1';
         document.getElementById('quiz-explanation').value = '';
         document.getElementById('code-description').value = '';
-        document.getElementById('code-starter').value = 'def solution():\n    # Напишите ваш код здесь\n    pass';
+        document.getElementById('code-starter').value = 'def solution():\n    pass';
         document.getElementById('code-solution').value = '';
         
         const testsContainer = document.getElementById('test-cases-container');
         testsContainer.innerHTML = '';
         this.addTestCase();
         
+        await this.loadLessonContent(courseId, lessonId);
+        
         modal.classList.remove('hidden');
     }
 
-    switchTab(tabName) {
-        document.querySelectorAll('.tab-btn').forEach(btn => {
-            btn.classList.remove('active');
-        });
-        
-        document.querySelectorAll('.tab-content').forEach(content => {
-            content.classList.add('hidden');
-        });
-        
-        const activeBtn = document.querySelector(`[data-tab="${tabName}"]`);
-        if (activeBtn) activeBtn.classList.add('active');
-        
-        const activeTab = document.getElementById(`${tabName}-tab`);
-        if (activeTab) activeTab.classList.remove('hidden');
+    async loadLessonContent(courseId, lessonId) {
+        console.log('📥 Загрузка контента урока:', lessonId);
+        try {
+            const token = localStorage.getItem('authToken');
+            
+            const theoryRes = await fetch(`${this.baseUrl}/api/teacher-course/${courseId}/lesson/${lessonId}/theory`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (theoryRes.ok) {
+                const theoryData = await theoryRes.json();
+                if (theoryData.success) {
+                    document.getElementById('theory-content').value = theoryData.content || '';
+                }
+            }
+            
+            const quizRes = await fetch(`${this.baseUrl}/api/teacher-course/${courseId}/lesson/${lessonId}/quiz`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (quizRes.ok) {
+                const quizData = await quizRes.json();
+                if (quizData.success && quizData.quiz) {
+                    document.getElementById('quiz-question').value = quizData.quiz.questionText || '';
+                    document.getElementById('quiz-option1').value = quizData.quiz.option1 || '';
+                    document.getElementById('quiz-option2').value = quizData.quiz.option2 || '';
+                    document.getElementById('quiz-option3').value = quizData.quiz.option3 || '';
+                    document.getElementById('quiz-option4').value = quizData.quiz.option4 || '';
+                    document.getElementById('quiz-correct').value = quizData.quiz.correctOption || '1';
+                    document.getElementById('quiz-explanation').value = quizData.quiz.explanation || '';
+                }
+            }
+            
+            const codeRes = await fetch(`${this.baseUrl}/api/teacher-course/${courseId}/lesson/${lessonId}/code`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (codeRes.ok) {
+                const codeData = await codeRes.json();
+                if (codeData.success && codeData.code) {
+                    document.getElementById('code-description').value = codeData.code.taskDescription || '';
+                    document.getElementById('code-starter').value = codeData.code.starterCode || 'def solution():\n    pass';
+                    document.getElementById('code-solution').value = codeData.code.solutionCode || '';
+                    
+                    const testsContainer = document.getElementById('test-cases-container');
+                    testsContainer.innerHTML = '';
+                    if (codeData.code.testCases && codeData.code.testCases.length > 0) {
+                        codeData.code.testCases.forEach(test => {
+                            this.addTestCase(test.input, test.expectedOutput, test.isHidden);
+                        });
+                    } else {
+                        this.addTestCase();
+                    }
+                }
+            }
+            
+        } catch (error) {
+            console.error('❌ Ошибка загрузки контента:', error);
+        }
     }
 
-    addTestCase() {
-        const container = document.getElementById('test-cases-container');
+    async saveLessonContent() {
+        console.log('💾 Сохранение урока');
         
-        const testDiv = document.createElement('div');
-        testDiv.className = 'test-case';
-        testDiv.style.cssText = 'border: 1px solid #e2e8f0; border-radius: 5px; padding: 15px; margin-bottom: 15px; background: #f8fafc;';
-        
-        const testCount = container.children.length + 1;
-        
-        testDiv.innerHTML = `
-            <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
-                <h5 style="margin: 0;">Тест ${testCount}</h5>
-                <button type="button" class="btn-danger btn-xs remove-test">✕</button>
-            </div>
-            <div class="form-group" style="margin-bottom: 10px;">
-                <label style="display: block; margin-bottom: 3px; font-size: 13px;">Входные данные:</label>
-                <input type="text" class="test-input form-input" placeholder="например: 5 10" style="width: 100%; padding: 6px; border: 1px solid #e2e8f0; border-radius: 4px;">
-            </div>
-            <div class="form-group" style="margin-bottom: 10px;">
-                <label style="display: block; margin-bottom: 3px; font-size: 13px;">Ожидаемый вывод:</label>
-                <input type="text" class="test-output form-input" placeholder="например: 15" style="width: 100%; padding: 6px; border: 1px solid #e2e8f0; border-radius: 4px;">
-            </div>
-            <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;">
-                <input type="checkbox" class="test-hidden">
-                <span style="font-size: 13px;">Скрытый тест (не показывать студенту)</span>
-            </label>
-        `;
-        
-        container.appendChild(testDiv);
-        this.updateTestNumbers();
-    }
-
-    updateTestNumbers() {
-        const tests = document.querySelectorAll('.test-case');
-        tests.forEach((test, index) => {
-            const title = test.querySelector('h5');
-            if (title) title.textContent = `Тест ${index + 1}`;
-        });
-    }
-
-    async saveLesson() {
         const courseId = document.getElementById('lesson-editor-course-id').value;
         const lessonId = document.getElementById('lesson-editor-lesson-id').value;
+        const token = localStorage.getItem('authToken');
         
-        const hasQuiz = document.getElementById('tab-quiz-btn').style.display !== 'none';
-        const hasCode = document.getElementById('tab-code-btn').style.display !== 'none';
+        const theoryContent = document.getElementById('theory-content').value;
+        if (theoryContent) {
+            try {
+                await fetch(`${this.baseUrl}/api/teacher-course/${courseId}/lesson/${lessonId}/theory`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ content: theoryContent })
+                });
+            } catch (error) {
+                console.error('Ошибка сохранения теории:', error);
+            }
+        }
         
-        if (hasQuiz) {
+        const quizTabBtn = document.getElementById('tab-quiz-btn');
+        if (quizTabBtn && quizTabBtn.style.display !== 'none') {
             const quizData = {
                 questionText: document.getElementById('quiz-question').value,
                 option1: document.getElementById('quiz-option1').value,
@@ -622,8 +736,7 @@ export class TeacherCourseCreator {
             
             if (quizData.questionText && quizData.option1) {
                 try {
-                    const token = localStorage.getItem('authToken');
-                    await fetch(`/api/teacher/courses/${courseId}/lesson/${lessonId}/quiz`, {
+                    await fetch(`${this.baseUrl}/api/teacher-course/${courseId}/lesson/${lessonId}/quiz`, {
                         method: 'PUT',
                         headers: {
                             'Content-Type': 'application/json',
@@ -637,7 +750,8 @@ export class TeacherCourseCreator {
             }
         }
         
-        if (hasCode) {
+        const codeTabBtn = document.getElementById('tab-code-btn');
+        if (codeTabBtn && codeTabBtn.style.display !== 'none') {
             const testCases = [];
             document.querySelectorAll('.test-case').forEach(test => {
                 const input = test.querySelector('.test-input').value;
@@ -659,8 +773,7 @@ export class TeacherCourseCreator {
             };
             
             try {
-                const token = localStorage.getItem('authToken');
-                await fetch(`/api/teacher/courses/${courseId}/lesson/${lessonId}/code`, {
+                await fetch(`${this.baseUrl}/api/teacher-course/${courseId}/lesson/${lessonId}/code`, {
                     method: 'PUT',
                     headers: {
                         'Content-Type': 'application/json',
@@ -677,6 +790,62 @@ export class TeacherCourseCreator {
         document.getElementById('modal-lesson-editor').classList.add('hidden');
     }
 
+    switchTab(tabName) {
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        
+        document.querySelectorAll('.tab-content').forEach(content => {
+            content.classList.add('hidden');
+        });
+        
+        const activeBtn = document.querySelector(`[data-tab="${tabName}"]`);
+        if (activeBtn) activeBtn.classList.add('active');
+        
+        const activeTab = document.getElementById(`${tabName}-tab`);
+        if (activeTab) activeTab.classList.remove('hidden');
+    }
+
+    addTestCase(input = '', output = '', isHidden = false) {
+        const container = document.getElementById('test-cases-container');
+        
+        const testDiv = document.createElement('div');
+        testDiv.className = 'test-case';
+        testDiv.style.cssText = 'border: 1px solid #e2e8f0; border-radius: 5px; padding: 15px; margin-bottom: 15px; background: #f8fafc;';
+        
+        const testCount = container.children.length + 1;
+        
+        testDiv.innerHTML = `
+            <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                <h5 style="margin: 0;">Тест ${testCount}</h5>
+                <button type="button" class="btn-danger btn-xs remove-test">✕</button>
+            </div>
+            <div class="form-group" style="margin-bottom: 10px;">
+                <label style="display: block; margin-bottom: 3px; font-size: 13px;">Входные данные:</label>
+                <input type="text" class="test-input form-input" value="${input}" placeholder="например: 5 10" style="width: 100%; padding: 6px; border: 1px solid #e2e8f0; border-radius: 4px;">
+            </div>
+            <div class="form-group" style="margin-bottom: 10px;">
+                <label style="display: block; margin-bottom: 3px; font-size: 13px;">Ожидаемый вывод:</label>
+                <input type="text" class="test-output form-input" value="${output}" placeholder="например: 15" style="width: 100%; padding: 6px; border: 1px solid #e2e8f0; border-radius: 4px;">
+            </div>
+            <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;">
+                <input type="checkbox" class="test-hidden" ${isHidden ? 'checked' : ''}>
+                <span style="font-size: 13px;">Скрытый тест (не показывать студенту)</span>
+            </label>
+        `;
+        
+        container.appendChild(testDiv);
+        this.updateTestNumbers();
+    }
+
+    updateTestNumbers() {
+        const tests = document.querySelectorAll('.test-case');
+        tests.forEach((test, index) => {
+            const title = test.querySelector('h5');
+            if (title) title.textContent = `Тест ${index + 1}`;
+        });
+    }
+
     async publishCourse() {
         if (!this.currentCourseId) return;
         
@@ -684,7 +853,7 @@ export class TeacherCourseCreator {
         
         try {
             const token = localStorage.getItem('authToken');
-            const response = await fetch(`/api/teacher/courses/${this.currentCourseId}/publish`, {
+            const response = await fetch(`${this.baseUrl}/api/teacher-course/${this.currentCourseId}/publish`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

@@ -526,11 +526,21 @@ export class TeacherManager {
         }
     }
 
-    editCourse(courseId) {
-        this.uiManager.showToast('Редактирование курса в разработке', 'info');
+editCourse(courseId) {
+    console.log('📝 Редактирование курса:', courseId);
+    if (this.courseCreator) {
+        this.courseCreator.showCourseEditor(courseId);
+    } else {
+        this.uiManager.showToast('Ошибка: редактор не инициализирован', 'error');
     }
+}
 
-    manageLessons(courseId) {
-        this.uiManager.showToast('Управление уроками в разработке', 'info');
+manageLessons(courseId) {
+    console.log('📝 Управление уроками курса:', courseId);
+    if (this.courseCreator) {
+        this.courseCreator.showCourseEditor(courseId);
+    } else {
+        this.uiManager.showToast('Ошибка: редактор не инициализирован', 'error');
     }
+}
 }
