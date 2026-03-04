@@ -404,7 +404,7 @@ export class TeacherCourseCreator {
             this.uiManager.showButtonLoading('save-course-template', true);
             
             const token = localStorage.getItem('authToken');
-            const response = await fetch('/api/teacher/courses/create-template', {
+            const response = await fetch('https://localhost:7000/api/teacher-course/create-template', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
