@@ -164,4 +164,47 @@ public class TeacherCourseController : ControllerBase
             return StatusCode(500, new { success = false, error = "Ошибка сервера" });
         }
     }
+
+    [HttpGet("{courseId}/lesson/{lessonId}/theory")]
+    public async Task<IActionResult> GetLessonTheory(string courseId, string lessonId)
+    {
+        try
+        {
+            var teacherId = User.FindFirst("userId")?.Value;
+            if (string.IsNullOrEmpty(teacherId))
+                return Unauthorized(new { success = false, error = "Пользователь не авторизован" });
+
+            var content = await _teacherCourseService.GetLessonTheoryAsync(teacherId, courseId, lessonId);
+            return Ok(new { success = true, content });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Ошибка загрузки теории");
+            return StatusCode(500, new { success = false, error = ex.Message });
+        }
+    }
+
+    [HttpPut("{courseId}/lesson/{lessonId}/theory")]
+    public async Task<IActionResult> UpdateLessonTheory(string courseId, string lessonId, [FromBody] TheoryContentDto theory)
+    {
+        try
+        {
+            var teacherId = User.FindFirst("userId")?.Value;
+            if (string.IsNullOrEmpty(teacherId))
+                return Unauthorized(new { success = false, error = "Пользователь не авторизован" });
+
+            var result = await _teacherCourseService.UpdateLessonTheoryAsync(teacherId, courseId, lessonId, theory.Content);
+            return Ok(new { success = result });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Ошибка сохранения теории");
+            return StatusCode(500, new { success = false, error = ex.Message });
+        }
+    }
+
+    public class TheoryContentDto
+    {
+        public string Content { get; set; } = "";
+    }
 }

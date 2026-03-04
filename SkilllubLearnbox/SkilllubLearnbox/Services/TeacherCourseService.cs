@@ -128,6 +128,82 @@ public class TeacherCourseService
         }
     }
 
+    public async Task<string> GetLessonTheoryAsync(string teacherId, string courseId, string lessonId)
+    {
+        try
+        {
+            await _client.InitializeAsync();
+
+            var lesson = await VerifyLessonBelongsToCourse(lessonId, courseId);
+            if (lesson == null) return "";
+
+            return lesson.Content ?? "";
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "❌ Ошибка получения теории");
+            return "";
+        }
+    }
+
+    public async Task<bool> UpdateLessonTheoryAsync(string teacherId, string courseId, string lessonId, string content)
+    {
+        try
+        {
+            await _client.InitializeAsync();
+
+            var lesson = await VerifyLessonBelongsToCourse(lessonId, courseId);
+            if (lesson == null) return false;
+
+            lesson.Content = content;
+            await _client.From<Lesson>().Update(lesson);
+
+            _logger.LogInformation("✅ Теория для урока {LessonId} сохранена", lessonId);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "❌ Ошибка сохранения теории");
+            return false;
+        }
+    }
+
+    public async Task<object> GetLessonQuizAsync(string teacherId, string courseId, string lessonId)
+    {
+        try
+        {
+            await _client.InitializeAsync();
+
+            var lesson = await VerifyLessonBelongsToCourse(lessonId, courseId);
+            if (lesson == null) return null;
+
+            var quizResponse = await _client
+                .From<QuizQuestion>()
+                .Where(q => q.LessonId == lessonId)
+                .Get();
+
+            var quiz = quizResponse.Models?.FirstOrDefault();
+            if (quiz == null) return null;
+
+            return new
+            {
+                quiz.Id,
+                quiz.QuestionText,
+                quiz.Option1,
+                quiz.Option2,
+                quiz.Option3,
+                quiz.Option4,
+                quiz.CorrectOption,
+                quiz.Explanation
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "❌ Ошибка получения теста");
+            return null;
+        }
+    }
+
     public async Task<bool> UpdateLessonQuizAsync(
         string teacherId,
         string courseId,
@@ -146,19 +222,6 @@ public class TeacherCourseService
             if (lesson == null)
                 return false;
 
-            var quizQuestion = new QuizQuestion
-            {
-                Id = Guid.NewGuid().ToString(),
-                LessonId = lessonId,
-                QuestionText = quiz.QuestionText,
-                Option1 = quiz.Option1,
-                Option2 = quiz.Option2,
-                Option3 = quiz.Option3,
-                Option4 = quiz.Option4,
-                CorrectOption = quiz.CorrectOption,
-                Explanation = quiz.Explanation,
-            };
-
             var existingQuestions = await _client
                 .From<QuizQuestion>()
                 .Where(q => q.LessonId == lessonId)
@@ -172,6 +235,19 @@ public class TeacherCourseService
                 }
             }
 
+            var quizQuestion = new QuizQuestion
+            {
+                Id = Guid.NewGuid().ToString(),
+                LessonId = lessonId,
+                QuestionText = quiz.QuestionText,
+                Option1 = quiz.Option1,
+                Option2 = quiz.Option2,
+                Option3 = quiz.Option3,
+                Option4 = quiz.Option4,
+                CorrectOption = quiz.CorrectOption,
+                Explanation = quiz.Explanation,
+            };
+
             await _client.From<QuizQuestion>().Insert(quizQuestion);
 
             _logger.LogInformation("✅ Тест для урока {LessonId} сохранен", lessonId);
@@ -181,6 +257,58 @@ public class TeacherCourseService
         {
             _logger.LogError(ex, "❌ Ошибка сохранения теста");
             return false;
+        }
+    }
+
+    public async Task<object> GetLessonCodeAsync(string teacherId, string courseId, string lessonId)
+    {
+        try
+        {
+            await _client.InitializeAsync();
+
+            var lesson = await VerifyLessonBelongsToCourse(lessonId, courseId);
+            if (lesson == null) return null;
+
+            var languages = await _client
+                .From<ProgrammingLanguage>()
+                .Where(l => l.Name.ToLower() == "python")
+                .Get();
+
+            var pythonLang = languages.Models?.FirstOrDefault();
+            if (pythonLang == null) return null;
+
+            var templateResponse = await _client
+                .From<CodeTemplate>()
+                .Where(ct => ct.LessonId == lessonId && ct.LanguageId == pythonLang.Id)
+                .Get();
+
+            var template = templateResponse.Models?.FirstOrDefault();
+
+            var testsResponse = await _client
+                .From<Test>()
+                .Where(t => t.LessonId == lessonId && t.LanguageId == pythonLang.Id)
+                .Order(t => t.TestOrder, Ordering.Ascending)
+                .Get();
+
+            var tests = testsResponse.Models?.Select(t => new
+            {
+                Input = t.Input,
+                ExpectedOutput = t.ExpectedOutput,
+                IsHidden = t.IsHidden
+            }).Cast<object>().ToList() ?? new List<object>();
+
+            return new
+            {
+                TaskDescription = template?.TemplateCode ?? "",
+                StarterCode = template?.StarterCode ?? "def solution():\n    pass",
+                SolutionCode = template?.SolutionCode ?? "",
+                TestCases = tests
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "❌ Ошибка получения кода");
+            return null;
         }
     }
 
@@ -355,7 +483,10 @@ public class TeacherCourseService
 
             var course = await VerifyCourseOwnership(teacherId, courseId);
             if (course == null)
+            {
+                _logger.LogWarning("❌ Курс {CourseId} не найден или не принадлежит преподавателю {TeacherId}", courseId, teacherId);
                 return null;
+            }
 
             var modulesResponse = await _client
                 .From<Module>()
@@ -364,6 +495,8 @@ public class TeacherCourseService
                 .Get();
 
             var modules = modulesResponse.Models?.ToList() ?? new List<Module>();
+
+            _logger.LogInformation("📦 Найдено модулей: {Count}", modules.Count);
 
             var result = new
             {
@@ -378,7 +511,12 @@ public class TeacherCourseService
                 modules = new List<object>()
             };
 
-            var pythonLang = await GetPythonLanguageId();
+            string pythonLang = "";
+            var langResponse = await _client
+                .From<ProgrammingLanguage>()
+                .Filter("name", Supabase.Postgrest.Constants.Operator.Equals, "python")
+                .Get();
+            pythonLang = langResponse.Models?.FirstOrDefault()?.Id ?? "";
 
             foreach (var module in modules)
             {
@@ -389,6 +527,8 @@ public class TeacherCourseService
                     .Get();
 
                 var lessons = lessonsResponse.Models?.ToList() ?? new List<Lesson>();
+
+                _logger.LogInformation("  📚 Модуль {ModuleTitle} содержит {Count} уроков", module.Title, lessons.Count);
 
                 var moduleData = new
                 {
@@ -404,22 +544,24 @@ public class TeacherCourseService
                         .From<QuizQuestion>()
                         .Where(q => q.LessonId == lesson.Id)
                         .Get();
-
                     var hasQuiz = quizResponse.Models?.Any() ?? false;
 
-                    var codeResponse = await _client
-                        .From<CodeTemplate>()
-                        .Where(ct => ct.LessonId == lesson.Id && ct.LanguageId == pythonLang)
-                        .Get();
-
-                    var hasCode = codeResponse.Models?.Any() ?? false;
+                    var hasCode = false;
+                    if (!string.IsNullOrEmpty(pythonLang))
+                    {
+                        var codeResponse = await _client
+                            .From<CodeTemplate>()
+                            .Where(ct => ct.LessonId == lesson.Id && ct.LanguageId == pythonLang)
+                            .Get();
+                        hasCode = codeResponse.Models?.Any() ?? false;
+                    }
 
                     moduleData.lessons.Add(new
                     {
                         lesson.Id,
                         lesson.Title,
                         lesson.LessonOrder,
-                        hasTheory = true, 
+                        hasTheory = true,
                         hasQuiz,
                         hasCode
                     });
@@ -428,11 +570,12 @@ public class TeacherCourseService
                 result.modules.Add(moduleData);
             }
 
+            _logger.LogInformation("✅ Структура курса {CourseId} загружена", courseId);
             return result;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "❌ Ошибка получения структуры курса");
+            _logger.LogError(ex, "❌ Ошибка получения структуры курса {CourseId}", courseId);
             return null;
         }
     }
@@ -441,10 +584,24 @@ public class TeacherCourseService
     {
         var response = await _client
             .From<Course>()
-            .Where(c => c.Id == courseId && c.CreatedBy == teacherId)
+            .Where(c => c.Id == courseId)
             .Get();
 
-        return response.Models?.FirstOrDefault();
+        var course = response.Models?.FirstOrDefault();
+
+        if (course == null)
+        {
+            _logger.LogWarning("❌ Курс {CourseId} не найден", courseId);
+            return null;
+        }
+
+        if (course.CreatedBy != teacherId)
+        {
+            _logger.LogWarning("❌ Курс {CourseId} не принадлежит преподавателю {TeacherId}", courseId, teacherId);
+            return null;
+        }
+
+        return course;
     }
 
     private async Task<Lesson?> VerifyLessonBelongsToCourse(string lessonId, string courseId)
@@ -467,11 +624,11 @@ public class TeacherCourseService
 
     private async Task<string> GetPythonLanguageId()
     {
-        var languages = await _client
+        var response = await _client
             .From<ProgrammingLanguage>()
-            .Where(l => l.Name.ToLower() == "python")
+            .Filter("name", Supabase.Postgrest.Constants.Operator.Equals, "python")
             .Get();
 
-        return languages.Models?.FirstOrDefault()?.Id ?? "";
+        return response.Models?.FirstOrDefault()?.Id ?? "";
     }
 }
