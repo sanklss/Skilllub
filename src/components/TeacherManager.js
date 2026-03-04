@@ -15,20 +15,19 @@ export class TeacherManager {
     }
 
     async initialize() {
-        this.setupTeacherEventListeners();
-        await this.loadDashboard();
+    this.setupTeacherEventListeners();
+    await this.loadDashboard();
+    
+    if (this.courseCreator) {
         this.courseCreator.initialize();
     }
+}
 
     setupTeacherEventListeners() {
         document.getElementById('teacher-nav-dashboard')?.addEventListener('click', () => this.showTeacherView('dashboard'));
         document.getElementById('teacher-nav-courses')?.addEventListener('click', () => this.showTeacherView('courses'));
         document.getElementById('teacher-nav-students')?.addEventListener('click', () => this.showTeacherView('students'));
         document.getElementById('teacher-nav-statistics')?.addEventListener('click', () => this.showTeacherView('statistics'));
-        
-        document.getElementById('create-course-btn')?.addEventListener('click', () => {
-            this.uiManager.showToast('Функция создания курса в разработке', 'info');
-        });
     }
 
     async showTeacherView(view) {
@@ -132,45 +131,60 @@ export class TeacherManager {
     }
 
     async loadTeacherCourses() {
-        try {
-            const result = await this.api.getTeacherDashboard();
-            if (result.success) {
-                this.renderCoursesList(result.dashboard.courses);
-            }
-        } catch (error) {
-            console.error('Ошибка загрузки курсов:', error);
-            this.uiManager.showToast('Ошибка загрузки курсов', 'error');
+    try {
+        const result = await this.api.getTeacherDashboard();
+        if (result.success) {
+            this.renderCoursesList(result.dashboard.courses);
         }
+    } catch (error) {
+        console.error('Ошибка загрузки курсов:', error);
+        this.uiManager.showToast('Ошибка загрузки курсов', 'error');
     }
+}
 
     renderCoursesList(courses) {
-        const container = document.getElementById('teacher-courses-list');
-        if (!container) return;
+    const container = document.getElementById('teacher-courses-list');
+    if (!container) return;
 
-        if (!courses || courses.length === 0) {
-            container.innerHTML = '<p class="muted">У вас пока нет созданных курсов</p>';
-            return;
-        }
-
-        container.innerHTML = courses.map(course => `
-            <div class="course-card teacher-course-card">
-                <h3>${course.title}</h3>
-                <p class="description">${course.description || 'Нет описания'}</p>
-                <div class="course-meta">
-                    <span>📊 Прогресс: ${Math.round(course.averageProgress)}%</span>
-                    <span>👥 ${course.studentCount} студентов</span>
-                </div>
-                <div class="course-actions">
-                    <button class="btn-secondary btn-sm" onclick="app.teacherManager.editCourse('${course.id}')">
-                        ✏️ Редактировать
-                    </button>
-                    <button class="btn-secondary btn-sm" onclick="app.teacherManager.manageLessons('${course.id}')">
-                        📖 Уроки
-                    </button>
-                </div>
+    if (!courses || courses.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state" style="text-align: center; padding: 40px;">
+                <div style="font-size: 48px; margin-bottom: 20px;">📚</div>
+                <h3>У вас пока нет курсов</h3>
+                <p class="muted">Создайте свой первый курс!</p>
+                <button class="btn-primary" id="create-course-btn" style="margin-top: 20px;">
+                    + Создать курс
+                </button>
             </div>
-        `).join('');
+        `;
+        
+        document.getElementById('create-course-btn')?.addEventListener('click', () => {
+            if (window.app && window.app.teacherManager && window.app.teacherManager.courseCreator) {
+                window.app.teacherManager.courseCreator.showCourseCreationModal();
+            }
+        });
+        return;
     }
+
+    container.innerHTML = courses.map(course => `
+        <div class="course-card teacher-course-card">
+            <h3>${course.title}</h3>
+            <p class="description">${course.description || 'Нет описания'}</p>
+            <div class="course-meta">
+                <span>📊 Прогресс: ${Math.round(course.averageProgress)}%</span>
+                <span>👥 ${course.studentCount} студентов</span>
+            </div>
+            <div class="course-actions">
+                <button class="btn-secondary btn-sm" onclick="app.teacherManager.editCourse('${course.id}')">
+                    ✏️ Редактировать
+                </button>
+                <button class="btn-secondary btn-sm" onclick="app.teacherManager.manageLessons('${course.id}')">
+                    📖 Уроки
+                </button>
+            </div>
+        </div>
+    `).join('');
+}
 
     async loadTeacherStudents() {
         try {
@@ -362,7 +376,6 @@ export class TeacherManager {
             document.body.appendChild(modal);
         }
 
-        // Заполняем данные студента
         document.getElementById('modal-student-name').textContent = progress.username;
         document.getElementById('modal-student-email').textContent = progress.email;
         document.getElementById('modal-total-lessons').textContent = progress.totalLessons || 0;
@@ -374,7 +387,6 @@ export class TeacherManager {
         document.getElementById('modal-progress-percent').textContent = percent + '%';
         document.getElementById('modal-progress-bar').style.width = percent + '%';
 
-        // Рендерим модули
         const modulesContainer = document.getElementById('modal-modules-list');
         
         if (!progress.modules || progress.modules.length === 0) {
@@ -410,9 +422,7 @@ export class TeacherManager {
         modal.classList.remove('hidden');
     }
 
-    // Метод для рендера одного урока
     renderLessonProgress(lesson, studentId) {
-        // Определяем статус
         let statusClass = '';
         let statusText = '';
         let statusColor = '';
@@ -457,7 +467,6 @@ export class TeacherManager {
     }
 
     async markLessonCompleted(studentId, lessonId) {
-        // Добавляем проверку входных данных
         if (!studentId || !lessonId) {
             console.error('❌ Ошибка: отсутствуют ID', { studentId, lessonId });
             this.uiManager.showToast('Ошибка: не указан ID урока или студента', 'error');
@@ -488,7 +497,6 @@ export class TeacherManager {
     }
 
     async resetLesson(studentId, lessonId) {
-        // Добавляем проверку входных данных
         if (!studentId || !lessonId) {
             console.error('❌ Ошибка: отсутствуют ID', { studentId, lessonId });
             this.uiManager.showToast('Ошибка: не указан ID урока или студента', 'error');

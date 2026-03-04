@@ -62,6 +62,7 @@ class LearnBoxApp {
             this.uiManager
         );
         window.app = this;
+        window.app.teacherManager = this.teacherManager;
         window.app.api = this.apiService; 
     }
 
@@ -72,6 +73,8 @@ class LearnBoxApp {
         this.uiManager.initialize();
         this.initializeValidation();
         await this.authManager.initialize();
+        await this.teacherManager.initialize();
+
         
         if (this.authManager.isAuthenticated()) {
             this.sessionManager.startSessionListener();
@@ -88,7 +91,6 @@ class LearnBoxApp {
         await this.courseManager.initialize();
         this.quizManager.initialize();
         this.adminManager.initialize();
-        this.teacherManager.initialize();
         this.setupGlobalNavigation();
         await this.achievementsManager.initialize();
         console.log('LearnBox App Ready');

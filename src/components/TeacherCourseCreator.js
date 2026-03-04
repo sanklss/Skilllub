@@ -1,288 +1,414 @@
 export class TeacherCourseCreator {
     constructor(apiService, uiManager) {
+        console.log('📝 TeacherCourseCreator: конструктор');
         this.api = apiService;
         this.uiManager = uiManager;
         this.currentCourseId = null;
+        this.currentLessonId = null;
         this.modules = [];
+        this.currentCourseData = null;
     }
 
     initialize() {
+        console.log('📝 TeacherCourseCreator: initialize()');
         this.setupEventListeners();
     }
 
     setupEventListeners() {
-        document.getElementById('create-course-btn')?.addEventListener('click', () => {
-            this.showCourseCreationModal();
+        console.log('📝 TeacherCourseCreator: setupEventListeners()');
+        
+        const createBtn = document.getElementById('create-course-btn');
+        if (createBtn) {
+            createBtn.addEventListener('click', (e) => {
+                console.log('🟢 create-course-btn НАЖАТ!');
+                e.preventDefault();
+                this.showCourseCreationModal();
+            });
+        }
+
+        document.addEventListener('click', (e) => {
+            const target = e.target;
+            
+            if (target.id === 'add-module-btn') {
+                console.log('🟢 add-module-btn НАЖАТА!');
+                e.preventDefault();
+                e.stopPropagation();
+                this.addModule();
+                return;
+            }
+            
+            if (target.classList.contains('remove-module-btn')) {
+                console.log('🟢 remove-module-btn НАЖАТА');
+                e.preventDefault();
+                const moduleCard = target.closest('.module-card');
+                if (moduleCard) {
+                    moduleCard.remove();
+                    this.updateModuleIndices();
+                }
+                return;
+            }
+            
+            if (target.classList.contains('add-lesson-btn')) {
+                console.log('🟢 add-lesson-btn НАЖАТА');
+                e.preventDefault();
+                const moduleCard = target.closest('.module-card');
+                if (moduleCard) {
+                    this.addLessonToModule(moduleCard);
+                }
+                return;
+            }
+            
+            if (target.classList.contains('remove-lesson-btn')) {
+                console.log('🟢 remove-lesson-btn НАЖАТА');
+                e.preventDefault();
+                const lessonRow = target.closest('.lesson-row');
+                if (lessonRow) {
+                    lessonRow.remove();
+                }
+                return;
+            }
+
+            if (target.id === 'save-course-template') {
+                console.log('🟢 save-course-template НАЖАТА');
+                e.preventDefault();
+                this.saveCourseTemplate();
+                return;
+            }
         });
 
-        document.getElementById('add-module-btn')?.addEventListener('click', () => {
-            this.addModule();
-        });
-
-        document.getElementById('save-course-template')?.addEventListener('click', () => {
-            this.saveCourseTemplate();
-        });
-
-        document.getElementById('publish-course-btn')?.addEventListener('click', () => {
-            this.publishCourse();
+        document.addEventListener('change', (e) => {
+            const target = e.target;
+            
+            if (target.classList.contains('module-title-input')) {
+                const moduleCard = target.closest('.module-card');
+                if (moduleCard) {
+                    console.log('📝 изменение названия модуля:', target.value);
+                }
+                return;
+            }
+            
+            if (target.classList.contains('lesson-title-input')) {
+                console.log('📝 изменение названия урока:', target.value);
+                return;
+            }
+            
+            if (target.classList.contains('lesson-quiz-checkbox')) {
+                console.log('📝 изменение чекбокса теста:', target.checked);
+                return;
+            }
+            
+            if (target.classList.contains('lesson-code-checkbox')) {
+                console.log('📝 изменение чекбокса кода:', target.checked);
+                return;
+            }
         });
     }
 
     showCourseCreationModal() {
+        console.log('📝 showCourseCreationModal() вызван');
         const modal = document.getElementById('modal-create-course');
         if (!modal) {
-            this.createCourseModal();
-        } else {
-            modal.classList.remove('hidden');
+            console.error('❌ Модальное окно не найдено!');
+            return;
         }
         
-        this.modules = [{ 
-            title: '', 
-            lessonsCount: 1,
-            lessons: [{ title: '', hasQuiz: false, hasCode: false }]
-        }];
-        this.renderModulesList();
+        this.modules = [];
+        
+        const titleInput = document.getElementById('course-title');
+        const descInput = document.getElementById('course-description');
+        const difficultySelect = document.getElementById('course-difficulty');
+        
+        if (titleInput) titleInput.value = '';
+        if (descInput) descInput.value = '';
+        if (difficultySelect) difficultySelect.value = 'beginner';
+        
+        this.createModulesContainer(modal);
+        
+        modal.classList.remove('hidden');
+        console.log('✅ модальное окно открыто');
     }
 
-    createCourseModal() {
-        const modal = document.createElement('div');
-        modal.id = 'modal-create-course';
-        modal.className = 'modal hidden';
+    createModulesContainer(modal) {
+        const modalContent = modal.querySelector('.modal-content');
+        if (!modalContent) return;
         
-        modal.innerHTML = `
-            <div class="modal-card" style="max-width: 800px; width: 90%; max-height: 80vh; overflow-y: auto;">
-                <header style="display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; border-bottom: 1px solid #e2e8f0;">
-                    <h3 style="margin: 0;">Создание нового курса</h3>
-                    <button class="close-btn" onclick="document.getElementById('modal-create-course').classList.add('hidden')">✕</button>
-                </header>
-                
-                <div class="modal-content" style="padding: 20px;">
-                    <form id="create-course-form">
-                        <div class="form-group" style="margin-bottom: 20px;">
-                            <label style="display: block; margin-bottom: 5px; font-weight: 500;">Название курса *</label>
-                            <input type="text" id="course-title" class="form-input" style="width: 100%; padding: 8px; border: 1px solid #e2e8f0; border-radius: 5px;" required>
-                        </div>
-                        
-                        <div class="form-group" style="margin-bottom: 20px;">
-                            <label style="display: block; margin-bottom: 5px; font-weight: 500;">Описание</label>
-                            <textarea id="course-description" class="form-input" rows="3" style="width: 100%; padding: 8px; border: 1px solid #e2e8f0; border-radius: 5px;"></textarea>
-                        </div>
-                        
-                        <div class="form-group" style="margin-bottom: 20px;">
-                            <label style="display: block; margin-bottom: 5px; font-weight: 500;">Уровень сложности</label>
-                            <select id="course-difficulty" class="filter-select" style="width: 100%; padding: 8px;">
-                                <option value="beginner">Начальный</option>
-                                <option value="intermediate">Средний</option>
-                                <option value="advanced">Продвинутый</option>
-                            </select>
-                        </div>
-                        
-                        <div class="modules-container" id="modules-container" style="margin-bottom: 20px;">
-                            <h4 style="margin: 0 0 15px 0;">Модули и уроки</h4>
-                            <div id="modules-list"></div>
-                            <button type="button" id="add-module-btn" class="btn-secondary" style="margin-top: 10px;">
-                                + Добавить модуль
-                            </button>
-                        </div>
-                        
-                        <div class="modal-actions" style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px;">
-                            <button type="button" id="save-course-template" class="btn-primary">Создать черновик</button>
-                            <button type="button" class="btn-secondary" onclick="document.getElementById('modal-create-course').classList.add('hidden')">Отмена</button>
-                        </div>
-                    </form>
-                </div>
-            </div>
+        const oldContainer = document.getElementById('modules-list');
+        if (oldContainer) oldContainer.remove();
+        
+        let modulesHeader = Array.from(modalContent.querySelectorAll('h4')).find(el => el.textContent.includes('Модули и уроки'));
+        if (!modulesHeader) {
+            modulesHeader = document.createElement('h4');
+            modulesHeader.textContent = 'Модули и уроки';
+            modulesHeader.style.margin = '20px 0 10px 0';
+            
+            const addModuleBtn = document.getElementById('add-module-btn');
+            if (addModuleBtn) {
+                addModuleBtn.parentNode.insertBefore(modulesHeader, addModuleBtn);
+            } else {
+                modalContent.appendChild(modulesHeader);
+            }
+        }
+        
+        const container = document.createElement('div');
+        container.id = 'modules-list';
+        container.style.cssText = `
+            display: block;
+            border: 2px solid #4299e1;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 15px 0;
+            min-height: 100px;
+            background: #f0f9ff;
         `;
         
-        document.body.appendChild(modal);
-        modal.classList.remove('hidden');
+        modulesHeader.insertAdjacentElement('afterend', container);
         
-        document.getElementById('add-module-btn').addEventListener('click', () => this.addModule());
-        document.getElementById('save-course-template').addEventListener('click', () => this.saveCourseTemplate());
-        
-        this.modules = [{ 
-            title: '', 
-            lessonsCount: 1,
-            lessons: [{ title: '', hasQuiz: false, hasCode: false }]
-        }];
-        this.renderModulesList();
-    }
-
-    renderModulesList() {
-        const container = document.getElementById('modules-list');
-        if (!container) return;
-        
-        let html = '';
-        
-        this.modules.forEach((module, moduleIndex) => {
-            html += `
-                <div class="module-card" style="border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 20px; padding: 15px; background: #f8fafc;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                        <h5 style="margin: 0;">Модуль ${moduleIndex + 1}</h5>
-                        ${this.modules.length > 1 ? 
-                            `<button type="button" class="btn-danger btn-sm" onclick="app.teacherCourseCreator.removeModule(${moduleIndex})">Удалить</button>` : 
-                            ''}
-                    </div>
-                    
-                    <div class="form-group" style="margin-bottom: 15px;">
-                        <label style="display: block; margin-bottom: 5px; font-size: 14px;">Название модуля</label>
-                        <input type="text" class="form-input module-title" data-index="${moduleIndex}" 
-                               value="${module.title}" style="width: 100%; padding: 8px; border: 1px solid #e2e8f0; border-radius: 5px;">
-                    </div>
-                    
-                    <div class="lessons-container" id="lessons-${moduleIndex}">
-                        ${this.renderLessons(module.lessons, moduleIndex)}
-                    </div>
-                    
-                    <button type="button" class="btn-secondary btn-sm" onclick="app.teacherCourseCreator.addLesson(${moduleIndex})" style="margin-top: 10px;">
-                        + Добавить урок
-                    </button>
-                </div>
-            `;
-        });
-        
-        container.innerHTML = html;
-        
-        document.querySelectorAll('.module-title').forEach(input => {
-            input.addEventListener('input', (e) => {
-                const index = parseInt(e.target.dataset.index);
-                this.modules[index].title = e.target.value;
-            });
-        });
-        
-        this.modules.forEach((module, moduleIndex) => {
-            module.lessons.forEach((lesson, lessonIndex) => {
-                const titleInput = document.getElementById(`lesson-title-${moduleIndex}-${lessonIndex}`);
-                if (titleInput) {
-                    titleInput.addEventListener('input', (e) => {
-                        this.modules[moduleIndex].lessons[lessonIndex].title = e.target.value;
-                    });
-                }
-                
-                const quizCheckbox = document.getElementById(`lesson-quiz-${moduleIndex}-${lessonIndex}`);
-                if (quizCheckbox) {
-                    quizCheckbox.addEventListener('change', (e) => {
-                        this.modules[moduleIndex].lessons[lessonIndex].hasQuiz = e.target.checked;
-                    });
-                }
-                
-                const codeCheckbox = document.getElementById(`lesson-code-${moduleIndex}-${lessonIndex}`);
-                if (codeCheckbox) {
-                    codeCheckbox.addEventListener('change', (e) => {
-                        this.modules[moduleIndex].lessons[lessonIndex].hasCode = e.target.checked;
-                    });
-                }
-            });
-        });
-    }
-
-    renderLessons(lessons, moduleIndex) {
-        let html = '<h6 style="margin: 10px 0;">Уроки:</h6>';
-        
-        lessons.forEach((lesson, lessonIndex) => {
-            html += `
-                <div class="lesson-row" style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px; padding: 10px; background: white; border-radius: 5px;">
-                    <div style="flex: 2;">
-                        <input type="text" id="lesson-title-${moduleIndex}-${lessonIndex}" 
-                               placeholder="Название урока" value="${lesson.title}"
-                               style="width: 100%; padding: 6px; border: 1px solid #e2e8f0; border-radius: 4px;">
-                    </div>
-                    
-                    <div style="flex: 3; display: flex; gap: 15px;">
-                        <label style="display: flex; align-items: center; gap: 5px;">
-                            <input type="checkbox" id="lesson-quiz-${moduleIndex}-${lessonIndex}" 
-                                   ${lesson.hasQuiz ? 'checked' : ''}>
-                            <span>📝 Тест</span>
-                        </label>
-                        
-                        <label style="display: flex; align-items: center; gap: 5px;">
-                            <input type="checkbox" id="lesson-code-${moduleIndex}-${lessonIndex}" 
-                                   ${lesson.hasCode ? 'checked' : ''}>
-                            <span>💻 Код</span>
-                        </label>
-                        
-                        <span style="color: #94a3b8; display: flex; align-items: center;">
-                            <span>📖 Теория</span>
-                        </span>
-                    </div>
-                    
-                    ${lessons.length > 1 ? 
-                        `<button type="button" class="btn-danger btn-xs" onclick="app.teacherCourseCreator.removeLesson(${moduleIndex}, ${lessonIndex})">✕</button>` : 
-                        ''}
-                </div>
-            `;
-        });
-        
-        return html;
+        console.log('✅ Контейнер для модулей создан');
     }
 
     addModule() {
-        this.modules.push({ 
-            title: '', 
-            lessonsCount: 1,
-            lessons: [{ title: '', hasQuiz: false, hasCode: false }]
+        console.log('🟢🟢🟢 addModule() ВЫЗВАН!');
+        
+        const container = document.getElementById('modules-list');
+        if (!container) {
+            console.error('❌ modules-list не найден');
+            return;
+        }
+        
+        const moduleCount = container.children.length + 1;
+        
+        const moduleDiv = document.createElement('div');
+        moduleDiv.className = 'module-card';
+        moduleDiv.style.cssText = `
+            border: 3px solid #4299e1;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            background: white;
+            display: block;
+            width: 100%;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        `;
+        
+        moduleDiv.innerHTML = `
+            <div style="
+                background: #4299e1;
+                color: white;
+                padding: 15px;
+                border-radius: 8px 8px 0 0;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+            ">
+                <h4 style="margin: 0;">Модуль ${moduleCount}</h4>
+                <button 
+                    type="button" 
+                    class="remove-module-btn"
+                    style="
+                        background: white;
+                        color: #4299e1;
+                        border: none;
+                        padding: 5px 15px;
+                        border-radius: 5px;
+                        cursor: pointer;
+                        font-weight: bold;
+                        font-size: 14px;
+                    "
+                >Удалить модуль</button>
+            </div>
+            
+            <div style="padding: 20px;">
+                <div style="margin-bottom: 20px;">
+                    <label style="
+                        display: block;
+                        margin-bottom: 8px;
+                        font-weight: 600;
+                        color: #2d3748;
+                        font-size: 14px;
+                    ">Название модуля</label>
+                    <input 
+                        type="text" 
+                        class="module-title-input"
+                        placeholder="Введите название модуля"
+                        style="
+                            width: 100%;
+                            padding: 10px;
+                            border: 2px solid #e2e8f0;
+                            border-radius: 5px;
+                            font-size: 14px;
+                            box-sizing: border-box;
+                        "
+                    >
+                </div>
+                
+                <div class="lessons-container" style="margin-bottom: 15px;">
+                    ${this.createLessonHtml(1)}
+                </div>
+                
+                <button 
+                    type="button" 
+                    class="add-lesson-btn"
+                    style="
+                        background: #48bb78;
+                        color: white;
+                        border: none;
+                        padding: 10px 20px;
+                        border-radius: 5px;
+                        cursor: pointer;
+                        font-weight: 600;
+                        width: 100%;
+                        font-size: 14px;
+                        margin-top: 10px;
+                    "
+                >+ Добавить урок</button>
+            </div>
+        `;
+        
+        container.appendChild(moduleDiv);
+        console.log(`✅ Модуль ${moduleCount} добавлен, теперь модулей:`, container.children.length);
+    }
+
+    createLessonHtml(lessonNumber) {
+        return `
+            <div class="lesson-row" style="
+                border: 2px solid #48bb78;
+                border-radius: 5px;
+                padding: 15px;
+                margin-bottom: 10px;
+                background: #f0fff4;
+                position: relative;
+            ">
+                <div style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap;">
+                    <div style="flex: 2; min-width: 200px;">
+                        <input 
+                            type="text" 
+                            class="lesson-title-input"
+                            placeholder="Название урока"
+                            style="
+                                width: 100%;
+                                padding: 8px;
+                                border: 2px solid #e2e8f0;
+                                border-radius: 5px;
+                                font-size: 14px;
+                                box-sizing: border-box;
+                            "
+                        >
+                    </div>
+                    <div style="display: flex; gap: 20px; align-items: center; flex-wrap: wrap;">
+                        <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;">
+                            <input type="checkbox" class="lesson-quiz-checkbox" style="width: 16px; height: 16px;"> 
+                            <span style="font-size: 14px;">📝 Тест</span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;">
+                            <input type="checkbox" class="lesson-code-checkbox" style="width: 16px; height: 16px;"> 
+                            <span style="font-size: 14px;">💻 Код</span>
+                        </label>
+                        <span style="color: #718096; font-size: 14px; display: flex; align-items: center;">
+                            📖 Теория
+                        </span>
+                        <button 
+                            type="button" 
+                            class="remove-lesson-btn"
+                            style="
+                                background: #f56565;
+                                color: white;
+                                border: none;
+                                padding: 5px 10px;
+                                border-radius: 3px;
+                                cursor: pointer;
+                                font-size: 12px;
+                                font-weight: bold;
+                                margin-left: 10px;
+                            "
+                        >✕</button>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    addLessonToModule(moduleCard) {
+        console.log('📝 addLessonToModule() вызван');
+        
+        const lessonsContainer = moduleCard.querySelector('.lessons-container');
+        if (!lessonsContainer) return;
+        
+        const lessonCount = lessonsContainer.children.length + 1;
+        const lessonHtml = this.createLessonHtml(lessonCount);
+        
+        lessonsContainer.insertAdjacentHTML('beforeend', lessonHtml);
+        console.log('✅ Урок добавлен');
+    }
+
+    updateModuleIndices() {
+        const container = document.getElementById('modules-list');
+        if (!container) return;
+        
+        const modules = container.querySelectorAll('.module-card');
+        modules.forEach((module, index) => {
+            const header = module.querySelector('h4');
+            if (header) {
+                header.textContent = `Модуль ${index + 1}`;
+            }
         });
-        this.renderModulesList();
-    }
-
-    removeModule(index) {
-        this.modules.splice(index, 1);
-        this.renderModulesList();
-    }
-
-    addLesson(moduleIndex) {
-        this.modules[moduleIndex].lessons.push({ title: '', hasQuiz: false, hasCode: false });
-        this.renderModulesList();
-    }
-
-    removeLesson(moduleIndex, lessonIndex) {
-        this.modules[moduleIndex].lessons.splice(lessonIndex, 1);
-        this.renderModulesList();
     }
 
     async saveCourseTemplate() {
-        const title = document.getElementById('course-title').value;
+        const title = document.getElementById('course-title')?.value;
         if (!title) {
             this.uiManager.showToast('Введите название курса', 'warning');
             return;
         }
 
-        for (let i = 0; i < this.modules.length; i++) {
-            for (let j = 0; j < this.modules[i].lessons.length; j++) {
-                if (!this.modules[i].lessons[j].title) {
-                    this.uiManager.showToast(`Заполните название урока ${j+1} в модуле ${i+1}`, 'warning');
-                    return;
-                }
+        const modules = [];
+        const container = document.getElementById('modules-list');
+        if (!container) return;
+        
+        const moduleCards = container.querySelectorAll('.module-card');
+        
+        for (const moduleCard of moduleCards) {
+            const moduleTitle = moduleCard.querySelector('.module-title-input')?.value || '';
+            const lessons = [];
+            
+            const lessonRows = moduleCard.querySelectorAll('.lesson-row');
+            for (const lessonRow of lessonRows) {
+                const lessonTitle = lessonRow.querySelector('.lesson-title-input')?.value || '';
+                const hasQuiz = lessonRow.querySelector('.lesson-quiz-checkbox')?.checked || false;
+                const hasCode = lessonRow.querySelector('.lesson-code-checkbox')?.checked || false;
+                
+                lessons.push({
+                    title: lessonTitle,
+                    order: lessons.length + 1,
+                    hasTheory: true,
+                    hasQuiz: hasQuiz,
+                    hasCode: hasCode
+                });
             }
+            
+            modules.push({
+                title: moduleTitle,
+                order: modules.length + 1,
+                lessonsCount: lessons.length,
+                lessons: lessons
+            });
         }
 
         const courseData = {
             title: title,
-            description: document.getElementById('course-description').value,
-            difficultyLevel: document.getElementById('course-difficulty').value,
-            modulesCount: this.modules.length,
-            modules: this.modules.map((module, index) => ({
-                title: module.title || `Модуль ${index + 1}`,
-                order: index + 1,
-                lessonsCount: module.lessons.length,
-                lessons: module.lessons.map((lesson, lessonIndex) => ({
-                    title: lesson.title,
-                    order: lessonIndex + 1,
-                    hasTheory: true,
-                    hasQuiz: lesson.hasQuiz,
-                    hasCode: lesson.hasCode
-                }))
-            }))
+            description: document.getElementById('course-description')?.value || '',
+            difficultyLevel: document.getElementById('course-difficulty')?.value || 'beginner',
+            modulesCount: modules.length,
+            modules: modules
         };
 
         try {
             this.uiManager.showButtonLoading('save-course-template', true);
             
+            const token = localStorage.getItem('authToken');
             const response = await fetch('/api/teacher/courses/create-template', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+                    'Authorization': `Bearer ${token}`
                 },
                 body: JSON.stringify(courseData)
             });
@@ -291,10 +417,9 @@ export class TeacherCourseCreator {
             
             if (result.success) {
                 this.currentCourseId = result.course.courseId;
-                this.uiManager.showToast('Черновик курса создан! Теперь можно заполнить уроки.', 'success');
+                this.uiManager.showToast('Черновик курса создан!', 'success');
                 document.getElementById('modal-create-course').classList.add('hidden');
-                
-                this.showCourseEditor(this.currentCourseId);
+                await this.showCourseEditor(this.currentCourseId);
             } else {
                 throw new Error(result.error || 'Ошибка создания курса');
             }
@@ -308,15 +433,17 @@ export class TeacherCourseCreator {
 
     async showCourseEditor(courseId) {
         try {
+            const token = localStorage.getItem('authToken');
             const response = await fetch(`/api/teacher/courses/${courseId}/structure`, {
                 headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+                    'Authorization': `Bearer ${token}`
                 }
             });
             
             const result = await response.json();
             
             if (result.success) {
+                this.currentCourseData = result.structure;
                 this.renderCourseEditor(result.structure);
             }
         } catch (error) {
@@ -325,83 +452,229 @@ export class TeacherCourseCreator {
     }
 
     renderCourseEditor(structure) {
-        let modal = document.getElementById('modal-course-editor');
+        const modal = document.getElementById('modal-course-editor');
+        if (!modal) return;
         
-        if (!modal) {
-            modal = document.createElement('div');
-            modal.id = 'modal-course-editor';
-            modal.className = 'modal';
-            document.body.appendChild(modal);
-        }
-
+        document.getElementById('editor-course-title').textContent = structure.course.title;
         
-        modal.innerHTML = `
-            <div class="modal-card" style="max-width: 1000px; width: 95%; max-height: 90vh; overflow-y: auto;">
-                <header style="display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; border-bottom: 1px solid #e2e8f0;">
-                    <h3 style="margin: 0;">Редактирование курса: ${structure.course.title}</h3>
-                    <button class="close-btn" onclick="document.getElementById('modal-course-editor').classList.add('hidden')">✕</button>
-                </header>
-                
-                <div class="modal-content" style="padding: 20px;">
-                    <div style="margin-bottom: 20px;">
-                        <button class="btn-success" id="publish-course-btn">Опубликовать курс</button>
-                    </div>
-                    
-                    <div class="course-structure">
-                        ${this.renderCourseModules(structure)}
-                    </div>
+        const container = document.getElementById('course-structure-container');
+        container.innerHTML = '';
+        
+        structure.modules.forEach((module) => {
+            const moduleDiv = document.createElement('div');
+            moduleDiv.className = 'editor-module';
+            moduleDiv.style.cssText = 'border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 20px; background: #f8fafc;';
+            
+            let moduleHtml = `
+                <div style="padding: 15px; border-bottom: 1px solid #e2e8f0; background: #f1f5f9; border-radius: 8px 8px 0 0;">
+                    <h4 style="margin: 0;">${module.title}</h4>
                 </div>
-            </div>
-        `;
-        
-        document.getElementById('publish-course-btn').addEventListener('click', () => this.publishCourse());
+                <div style="padding: 15px;">
+            `;
+            
+            module.lessons.forEach((lesson) => {
+                let badges = '';
+                if (lesson.hasTheory) {
+                    badges += '<span style="background: #64748b; color: white; padding: 3px 8px; border-radius: 12px; font-size: 12px; margin-right: 5px;">📖 Теория</span>';
+                }
+                if (lesson.hasQuiz) {
+                    badges += '<span style="background: #3b82f6; color: white; padding: 3px 8px; border-radius: 12px; font-size: 12px; margin-right: 5px;">📝 Тест</span>';
+                }
+                if (lesson.hasCode) {
+                    badges += '<span style="background: #10b981; color: white; padding: 3px 8px; border-radius: 12px; font-size: 12px; margin-right: 5px;">💻 Код</span>';
+                }
+                
+                moduleHtml += `
+                    <div style="border: 1px solid #e2e8f0; border-radius: 5px; margin-bottom: 15px; background: white;">
+                        <div style="padding: 10px 15px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;">
+                            <h5 style="margin: 0;">${lesson.title}</h5>
+                            <div>${badges}</div>
+                        </div>
+                        <div style="padding: 15px;">
+                            <button class="btn-secondary btn-sm edit-lesson-btn" 
+                                data-course-id="${structure.course.id}" 
+                                data-lesson-id="${lesson.id}" 
+                                data-has-quiz="${lesson.hasQuiz}" 
+                                data-has-code="${lesson.hasCode}">
+                                Редактировать урок
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            moduleHtml += '</div>';
+            moduleDiv.innerHTML = moduleHtml;
+            container.appendChild(moduleDiv);
+        });
         
         modal.classList.remove('hidden');
     }
 
-    renderCourseModules(structure) {
-        let html = '';
+    async editLesson(courseId, lessonId, hasQuiz, hasCode) {
+        const modal = document.getElementById('modal-lesson-editor');
+        if (!modal) return;
         
-        structure.modules.forEach((module, moduleIndex) => {
-            html += `
-                <div class="editor-module" style="border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 20px; background: #f8fafc;">
-                    <div style="padding: 15px; border-bottom: 1px solid #e2e8f0; background: #f1f5f9; border-radius: 8px 8px 0 0;">
-                        <h4 style="margin: 0;">${module.title}</h4>
-                    </div>
-                    
-                    <div style="padding: 15px;">
-                        ${module.lessons.map((lesson, lessonIndex) => `
-                            <div class="editor-lesson" style="border: 1px solid #e2e8f0; border-radius: 5px; margin-bottom: 15px; background: white;">
-                                <div style="padding: 10px 15px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;">
-                                    <h5 style="margin: 0;">${lesson.title}</h5>
-                                    <div style="display: flex; gap: 10px;">
-                                        ${lesson.hasQuiz ? '<span class="badge" style="background: #3b82f6; color: white; padding: 3px 8px; border-radius: 12px; font-size: 12px;">📝 Тест</span>' : ''}
-                                        ${lesson.hasCode ? '<span class="badge" style="background: #10b981; color: white; padding: 3px 8px; border-radius: 12px; font-size: 12px;">💻 Код</span>' : ''}
-                                        <span class="badge" style="background: #64748b; color: white; padding: 3px 8px; border-radius: 12px; font-size: 12px;">📖 Теория</span>
-                                    </div>
-                                </div>
-                                
-                                <div style="padding: 15px;">
-                                    <button class="btn-secondary btn-sm" onclick="app.teacherCourseCreator.editLesson('${structure.course.id}', '${lesson.id}', ${lesson.hasQuiz}, ${lesson.hasCode})">
-                                        Редактировать урок
-                                    </button>
-                                </div>
-                            </div>
-                        `).join('')}
-                    </div>
-                </div>
-            `;
-        });
+        document.getElementById('lesson-editor-course-id').value = courseId;
+        document.getElementById('lesson-editor-lesson-id').value = lessonId;
+        document.getElementById('lesson-editor-title').textContent = 'Редактирование урока';
         
-        return html;
+        this.switchTab('theory');
+        
+        const quizTabBtn = document.getElementById('tab-quiz-btn');
+        const codeTabBtn = document.getElementById('tab-code-btn');
+        
+        if (quizTabBtn) quizTabBtn.style.display = hasQuiz ? 'inline-block' : 'none';
+        if (codeTabBtn) codeTabBtn.style.display = hasCode ? 'inline-block' : 'none';
+        
+        document.getElementById('theory-content').value = '';
+        document.getElementById('quiz-question').value = '';
+        document.getElementById('quiz-option1').value = '';
+        document.getElementById('quiz-option2').value = '';
+        document.getElementById('quiz-option3').value = '';
+        document.getElementById('quiz-option4').value = '';
+        document.getElementById('quiz-correct').value = '1';
+        document.getElementById('quiz-explanation').value = '';
+        document.getElementById('code-description').value = '';
+        document.getElementById('code-starter').value = 'def solution():\n    # Напишите ваш код здесь\n    pass';
+        document.getElementById('code-solution').value = '';
+        
+        const testsContainer = document.getElementById('test-cases-container');
+        testsContainer.innerHTML = '';
+        this.addTestCase();
+        
+        modal.classList.remove('hidden');
     }
 
-    async editLesson(courseId, lessonId, hasQuiz, hasCode) {
+    switchTab(tabName) {
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        
+        document.querySelectorAll('.tab-content').forEach(content => {
+            content.classList.add('hidden');
+        });
+        
+        const activeBtn = document.querySelector(`[data-tab="${tabName}"]`);
+        if (activeBtn) activeBtn.classList.add('active');
+        
+        const activeTab = document.getElementById(`${tabName}-tab`);
+        if (activeTab) activeTab.classList.remove('hidden');
+    }
 
+    addTestCase() {
+        const container = document.getElementById('test-cases-container');
         
-        console.log('Редактирование урока:', { courseId, lessonId, hasQuiz, hasCode });
+        const testDiv = document.createElement('div');
+        testDiv.className = 'test-case';
+        testDiv.style.cssText = 'border: 1px solid #e2e8f0; border-radius: 5px; padding: 15px; margin-bottom: 15px; background: #f8fafc;';
         
-        this.uiManager.showToast('Редактор урока в разработке', 'info');
+        const testCount = container.children.length + 1;
+        
+        testDiv.innerHTML = `
+            <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                <h5 style="margin: 0;">Тест ${testCount}</h5>
+                <button type="button" class="btn-danger btn-xs remove-test">✕</button>
+            </div>
+            <div class="form-group" style="margin-bottom: 10px;">
+                <label style="display: block; margin-bottom: 3px; font-size: 13px;">Входные данные:</label>
+                <input type="text" class="test-input form-input" placeholder="например: 5 10" style="width: 100%; padding: 6px; border: 1px solid #e2e8f0; border-radius: 4px;">
+            </div>
+            <div class="form-group" style="margin-bottom: 10px;">
+                <label style="display: block; margin-bottom: 3px; font-size: 13px;">Ожидаемый вывод:</label>
+                <input type="text" class="test-output form-input" placeholder="например: 15" style="width: 100%; padding: 6px; border: 1px solid #e2e8f0; border-radius: 4px;">
+            </div>
+            <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;">
+                <input type="checkbox" class="test-hidden">
+                <span style="font-size: 13px;">Скрытый тест (не показывать студенту)</span>
+            </label>
+        `;
+        
+        container.appendChild(testDiv);
+        this.updateTestNumbers();
+    }
+
+    updateTestNumbers() {
+        const tests = document.querySelectorAll('.test-case');
+        tests.forEach((test, index) => {
+            const title = test.querySelector('h5');
+            if (title) title.textContent = `Тест ${index + 1}`;
+        });
+    }
+
+    async saveLesson() {
+        const courseId = document.getElementById('lesson-editor-course-id').value;
+        const lessonId = document.getElementById('lesson-editor-lesson-id').value;
+        
+        const hasQuiz = document.getElementById('tab-quiz-btn').style.display !== 'none';
+        const hasCode = document.getElementById('tab-code-btn').style.display !== 'none';
+        
+        if (hasQuiz) {
+            const quizData = {
+                questionText: document.getElementById('quiz-question').value,
+                option1: document.getElementById('quiz-option1').value,
+                option2: document.getElementById('quiz-option2').value,
+                option3: document.getElementById('quiz-option3').value,
+                option4: document.getElementById('quiz-option4').value,
+                correctOption: parseInt(document.getElementById('quiz-correct').value),
+                explanation: document.getElementById('quiz-explanation').value
+            };
+            
+            if (quizData.questionText && quizData.option1) {
+                try {
+                    const token = localStorage.getItem('authToken');
+                    await fetch(`/api/teacher/courses/${courseId}/lesson/${lessonId}/quiz`, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify(quizData)
+                    });
+                } catch (error) {
+                    console.error('Ошибка сохранения теста:', error);
+                }
+            }
+        }
+        
+        if (hasCode) {
+            const testCases = [];
+            document.querySelectorAll('.test-case').forEach(test => {
+                const input = test.querySelector('.test-input').value;
+                const output = test.querySelector('.test-output').value;
+                if (input && output) {
+                    testCases.push({
+                        input: input,
+                        expectedOutput: output,
+                        isHidden: test.querySelector('.test-hidden').checked
+                    });
+                }
+            });
+            
+            const codeData = {
+                taskDescription: document.getElementById('code-description').value,
+                starterCode: document.getElementById('code-starter').value,
+                solutionCode: document.getElementById('code-solution').value,
+                testCases: testCases
+            };
+            
+            try {
+                const token = localStorage.getItem('authToken');
+                await fetch(`/api/teacher/courses/${courseId}/lesson/${lessonId}/code`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify(codeData)
+                });
+            } catch (error) {
+                console.error('Ошибка сохранения кода:', error);
+            }
+        }
+        
+        this.uiManager.showToast('Урок сохранен', 'success');
+        document.getElementById('modal-lesson-editor').classList.add('hidden');
     }
 
     async publishCourse() {
@@ -410,11 +683,12 @@ export class TeacherCourseCreator {
         if (!confirm('Опубликовать курс? После публикации курс станет доступен для студентов.')) return;
         
         try {
+            const token = localStorage.getItem('authToken');
             const response = await fetch(`/api/teacher/courses/${this.currentCourseId}/publish`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+                    'Authorization': `Bearer ${token}`
                 },
                 body: JSON.stringify({ courseId: this.currentCourseId })
             });
