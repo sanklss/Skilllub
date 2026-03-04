@@ -6,7 +6,7 @@ using SkilllubLearnbox.Services;
 namespace SkilllubLearnbox.Controllers;
 
 [ApiController]
-[Route("api/teacher/courses")]
+[Route("api/teacher-course")]
 [AuthorizeRoles("teacher", "admin")]
 public class TeacherCourseController : ControllerBase
 {
