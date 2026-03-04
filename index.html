@@ -249,126 +249,109 @@
                     </div>
                 </div>
             </div>
-
-            <div id="admin-statistics" class="admin-view hidden">
-              <div class="admin-section-header">
-                <h2>Статистика платформы</h2>
-                <button class="btn-primary" id="refresh-stats">Обновить</button>
-              </div>
-              <div class="stats-grid">
-                <div class="stat-card large">
-                  <h3>Общая статистика</h3>
-                  <p class="muted">Загрузка статистики...</p>
-                </div>
-              </div>
-            </div>
           </div>
         </div>
       </section>
 
       <section id="teacher-panel" class="page-section">
-    <div class="teacher-container">
-        <div class="teacher-header">
-            <h1>Панель преподавателя</h1>
-            <p class="subtitle">Управление курсами и отслеживание прогресса студентов</p>
-        </div>
-
-        <nav class="teacher-nav">
-            <button class="teacher-nav-item active" id="teacher-nav-dashboard">
-                Дашборд
-            </button>
-            <button class="teacher-nav-item" id="teacher-nav-courses">
-                Мои курсы
-            </button>
-            <button class="teacher-nav-item" id="teacher-nav-students">
-                Студенты
-            </button>
-            <button class="teacher-nav-item" id="teacher-nav-statistics">
-                Статистика
-            </button>
-        </nav>
-
-        <div class="teacher-content">
-            <!-- Дашборд -->
-            <div id="teacher-dashboard" class="teacher-view active">
-                <div class="teacher-stats-grid">
-                    <div class="stat-card">
-                        <h3>Мои студенты</h3>
-                        <div class="stat-number" id="dashboard-total-students">0</div>
-                        <p class="stat-description">Всего обучающихся</p>
-                    </div>
-                    <div class="stat-card">
-                        <h3>Активные курсы</h3>
-                        <div class="stat-number" id="dashboard-active-courses">0</div>
-                        <p class="stat-description">Курсы с активными студентами</p>
-                    </div>
-                    <div class="stat-card">
-                        <h3>Пройдено уроков</h3>
-                        <div class="stat-number" id="dashboard-completed-lessons">0</div>
-                        <p class="stat-description">Всего студентами</p>
-                    </div>
-                </div>
-                
-                <div class="section-header">
-                    <h2>Ваши курсы</h2>
-                </div>
-                <div id="dashboard-courses-list" class="courses-grid">
-                    <!-- Сюда загрузятся курсы -->
-                </div>
+        <div class="teacher-container">
+            <div class="teacher-header">
+                <h1>Панель преподавателя</h1>
+                <p class="subtitle">Управление курсами и отслеживание прогресса студентов</p>
             </div>
 
-            <!-- Мои курсы -->
-            <div id="teacher-courses" class="teacher-view hidden">
-                <div class="teacher-section-header">
-                    <h2>Мои курсы</h2>
-                    <button class="btn-primary" id="create-course-btn">+ Создать курс</button>
-                </div>
-                <div id="teacher-courses-list" class="courses-grid">
-                    <!-- Сюда загрузятся курсы -->
-                </div>
-            </div>
+            <nav class="teacher-nav">
+                <button class="teacher-nav-item active" id="teacher-nav-dashboard">
+                    Дашборд
+                </button>
+                <button class="teacher-nav-item" id="teacher-nav-courses">
+                    Мои курсы
+                </button>
+                <button class="teacher-nav-item" id="teacher-nav-students">
+                    Студенты
+                </button>
+                <button class="teacher-nav-item" id="teacher-nav-statistics">
+                    Статистика
+                </button>
+            </nav>
 
-            <!-- Студенты -->
-            <div id="teacher-students" class="teacher-view hidden">
-                <div class="teacher-section-header">
-                    <h2>Мои студенты</h2>
-                    <select id="student-course-filter" class="filter-select">
-                        <option value="">Все курсы</option>
-                    </select>
-                </div>
-                <div id="teacher-students-list" class="students-list">
-                    <!-- Сюда загрузится таблица студентов -->
-                </div>
-            </div>
-
-            <!-- Статистика -->
-            <div id="teacher-statistics" class="teacher-view hidden">
-                <div class="teacher-section-header">
-                    <h2>Статистика преподавания</h2>
-                </div>
-                <div class="stats-grid">
-                    <div class="stat-card large">
-                        <h3>Общая статистика</h3>
-                        <div class="stat-item">
-                            <span>Всего студентов:</span>
-                            <strong id="stats-total-students">0</strong>
+            <div class="teacher-content">
+                <div id="teacher-dashboard" class="teacher-view active">
+                    <div class="teacher-stats-grid">
+                        <div class="stat-card">
+                            <h3>Мои студенты</h3>
+                            <div class="stat-number" id="dashboard-total-students">0</div>
+                            <p class="stat-description">Всего обучающихся</p>
                         </div>
-                        <div class="stat-item">
-                            <span>Средний прогресс:</span>
-                            <strong id="stats-average-progress">0%</strong>
+                        <div class="stat-card">
+                            <h3>Активные курсы</h3>
+                            <div class="stat-number" id="dashboard-active-courses">0</div>
+                            <p class="stat-description">Курсы с активными студентами</p>
+                        </div>
+                        <div class="stat-card">
+                            <h3>Пройдено уроков</h3>
+                            <div class="stat-number" id="dashboard-completed-lessons">0</div>
+                            <p class="stat-description">Всего студентами</p>
                         </div>
                     </div>
-                    <div class="stat-card large">
-                        <h3>Популярные курсы</h3>
-                        <div id="stats-popular-courses">
-                            <p class="muted">Статистика по курсам появится после их создания</p>
+                    
+                    <div class="section-header">
+                        <h2>Ваши курсы</h2>
+                    </div>
+                    <div id="dashboard-courses-list" class="courses-grid">
+                    </div>
+                </div>
+
+                <div id="teacher-courses" class="teacher-view hidden">
+                    <div class="teacher-section-header">
+                        <h2>Мои курсы</h2>
+                        <button class="btn-primary" id="create-course-btn">+ Создать курс</button>
+                    </div>
+                    <div id="teacher-courses-list" class="courses-grid">
+                    </div>
+                </div>
+
+
+                <div id="teacher-students" class="teacher-view hidden">
+                    <div class="teacher-section-header">
+                        <h2>Мои студенты</h2>
+                        <select id="student-course-filter" class="filter-select">
+                            <option value="">Все курсы</option>
+                        </select>
+                    </div>
+                    <div id="teacher-students-list" class="students-list">
+
+                    </div>
+                </div>
+
+
+                <div id="teacher-statistics" class="teacher-view hidden">
+                    <div class="teacher-section-header">
+                        <h2>Статистика преподавания</h2>
+                    </div>
+                    <div class="stats-grid">
+                        <div class="stat-card large">
+                            <h3>Общая статистика</h3>
+                            <div class="stat-item">
+                                <span>Всего студентов:</span>
+                                <strong id="stats-total-students">0</strong>
+                            </div>
+                            <div class="stat-item">
+                                <span>Средний прогресс:</span>
+                                <strong id="stats-average-progress">0%</strong>
+                            </div>
+                        </div>
+                        <div class="stat-card large">
+                            <h3>Популярные курсы</h3>
+                            <div id="stats-popular-courses">
+                                <p class="muted">Статистика по курсам появится после их создания</p>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
-    </div>
-</section>
+      </section>
 
       <section id="home" class="section">
         <header class="page-header">
@@ -407,7 +390,7 @@
     </main>
   </div>
 
-<div id="modal-login" class="modal hidden" role="dialog" aria-labelledby="login-title">
+  <div id="modal-login" class="modal hidden" role="dialog" aria-labelledby="login-title">
     <div class="modal-card">
         <header><h3 id="login-title">Вход в LearnBox</h3></header>
         <form class="modal-form" id="form-login" novalidate autocomplete="off">
@@ -429,9 +412,9 @@
             <p class="muted">Нет аккаунта? <a href="#signup" id="to-signup">Зарегистрируйтесь</a></p>
         </div>
     </div>
-</div>
+  </div>
 
-<div id="modal-signup" class="modal hidden" role="dialog" aria-labelledby="signup-title">
+  <div id="modal-signup" class="modal hidden" role="dialog" aria-labelledby="signup-title">
     <div class="modal-card">
         <header><h3 id="signup-title">Регистрация в LearnBox</h3></header>
         <form class="modal-form" id="form-signup" novalidate autocomplete="off">
@@ -473,9 +456,9 @@
             <p class="muted">Уже есть аккаунт? <a href="#login" id="to-login">Войдите</a></p>
         </div>
     </div>
-</div>
+  </div>
 
-<div id="modal-forgot-password" class="modal hidden" role="dialog" aria-labelledby="forgot-password-title">
+  <div id="modal-forgot-password" class="modal hidden" role="dialog" aria-labelledby="forgot-password-title">
     <div class="modal-card">
         <header><h3 id="forgot-password-title">Восстановить пароль</h3></header>
         <form class="modal-form" id="form-forgot-password" novalidate>
@@ -488,9 +471,9 @@
             </div>
         </form>
     </div>
-</div>
+  </div>
 
-<div id="modal-reset-code" class="modal hidden">
+  <div id="modal-reset-code" class="modal hidden">
     <div class="modal-card">
         <header><h3>Введите код восстановления</h3></header>
         <form class="modal-form" id="form-reset-code" novalidate>
@@ -504,9 +487,9 @@
             </div>
         </form>
     </div>
-</div>
+  </div>
 
-<div id="modal-new-password" class="modal hidden" role="dialog" aria-labelledby="new-password-title">
+  <div id="modal-new-password" class="modal hidden" role="dialog" aria-labelledby="new-password-title">
     <div class="modal-card">
         <header><h3 id="new-password-title">Создание нового пароля</h3></header>
         <form class="modal-form" id="form-new-password" novalidate>
@@ -525,9 +508,9 @@
             </div>
         </form>
     </div>
-</div>
+  </div>
 
-<div id="modal-change-password" class="modal hidden" role="dialog" aria-labelledby="change-password-title">
+  <div id="modal-change-password" class="modal hidden" role="dialog" aria-labelledby="change-password-title">
     <div class="modal-card">
         <header><h3 id="change-password-title">Смена пароля</h3></header>
         <form class="modal-form" id="change-password-form" novalidate>
@@ -549,9 +532,254 @@
             </div>
         </form>
     </div>
-</div>
+  </div>
 
-<template id="admin-dashboard-template">
+
+
+  <div id="modal-create-course" class="modal hidden">
+    <div class="modal-card" style="max-width: 800px; width: 90%; max-height: 80vh; overflow-y: auto;">
+      <header style="display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; border-bottom: 1px solid #e2e8f0;">
+        <h3 style="margin: 0;">Создание нового курса</h3>
+        <button class="close-btn" onclick="document.getElementById('modal-create-course').classList.add('hidden')">✕</button>
+      </header>
+      
+      <div class="modal-content" style="padding: 20px;">
+        <form id="create-course-form">
+          <div class="form-group" style="margin-bottom: 20px;">
+            <label style="display: block; margin-bottom: 5px; font-weight: 500;">Название курса *</label>
+            <input type="text" id="course-title" class="form-input" style="width: 100%; padding: 8px; border: 1px solid #e2e8f0; border-radius: 5px;" required>
+          </div>
+          
+          <div class="form-group" style="margin-bottom: 20px;">
+            <label style="display: block; margin-bottom: 5px; font-weight: 500;">Описание</label>
+            <textarea id="course-description" class="form-input" rows="3" style="width: 100%; padding: 8px; border: 1px solid #e2e8f0; border-radius: 5px;"></textarea>
+          </div>
+          
+          <div class="form-group" style="margin-bottom: 20px;">
+            <label style="display: block; margin-bottom: 5px; font-weight: 500;">Уровень сложности</label>
+            <select id="course-difficulty" class="filter-select" style="width: 100%; padding: 8px;">
+              <option value="beginner">Начальный</option>
+              <option value="intermediate">Средний</option>
+              <option value="advanced">Продвинутый</option>
+            </select>
+          </div>
+          
+          <div class="modules-container" id="modules-container" style="margin-bottom: 20px;">
+            <h4 style="margin: 0 0 15px 0;">Модули и уроки</h4>
+            <div id="modules-list"></div>
+            <button type="button" id="add-module-btn" class="btn-secondary" style="margin-top: 10px;">
+              + Добавить модуль
+            </button>
+          </div>
+          
+          <div class="modal-actions" style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px;">
+            <button type="button" id="save-course-template" class="btn-primary">Создать черновик</button>
+            <button type="button" class="btn-secondary" onclick="document.getElementById('modal-create-course').classList.add('hidden')">Отмена</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  
+  <div id="modal-course-editor" class="modal hidden">
+    <div class="modal-card" style="max-width: 1000px; width: 95%; max-height: 90vh; overflow-y: auto;">
+      <header style="display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; border-bottom: 1px solid #e2e8f0;">
+        <h3 style="margin: 0;">Редактирование курса: <span id="editor-course-title"></span></h3>
+        <button class="close-btn" onclick="document.getElementById('modal-course-editor').classList.add('hidden')">✕</button>
+      </header>
+      
+      <div class="modal-content" style="padding: 20px;">
+        <div style="margin-bottom: 20px;">
+          <button class="btn-success" id="publish-course-btn">Опубликовать курс</button>
+        </div>
+        
+        <div class="course-structure" id="course-structure-container">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="modal-lesson-editor" class="modal hidden">
+    <div class="modal-card" style="max-width: 900px; width: 95%; max-height: 90vh; overflow-y: auto;">
+      <header style="display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; border-bottom: 1px solid #e2e8f0;">
+        <h3 style="margin: 0;">Редактирование урока: <span id="lesson-editor-title"></span></h3>
+        <button class="close-btn" onclick="document.getElementById('modal-lesson-editor').classList.add('hidden')">✕</button>
+      </header>
+      
+      <div class="modal-content" style="padding: 20px;">
+        <input type="hidden" id="lesson-editor-course-id">
+        <input type="hidden" id="lesson-editor-lesson-id">
+        
+        <div class="lesson-editor-tabs" style="display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px;">
+          <button class="tab-btn active" data-tab="theory" id="tab-theory-btn">📖 Теория</button>
+          <button class="tab-btn" data-tab="quiz" id="tab-quiz-btn">📝 Тест</button>
+          <button class="tab-btn" data-tab="code" id="tab-code-btn">💻 Код</button>
+        </div>
+        
+        <div class="tab-content active" id="theory-tab">
+          <div class="form-group">
+            <label style="display: block; margin-bottom: 5px; font-weight: 500;">Содержание теории:</label>
+            <textarea id="theory-content" rows="15" class="form-input" style="width: 100%; font-family: monospace; padding: 10px; border: 1px solid #e2e8f0; border-radius: 5px;"></textarea>
+          </div>
+        </div>
+        
+        <div class="tab-content hidden" id="quiz-tab">
+          <div class="quiz-editor">
+            <div class="form-group" style="margin-bottom: 15px;">
+              <label style="display: block; margin-bottom: 5px; font-weight: 500;">Вопрос:</label>
+              <input type="text" id="quiz-question" class="form-input" style="width: 100%; padding: 8px; border: 1px solid #e2e8f0; border-radius: 5px;">
+            </div>
+            <div class="form-group" style="margin-bottom: 15px;">
+              <label style="display: block; margin-bottom: 5px; font-weight: 500;">Вариант 1:</label>
+              <input type="text" id="quiz-option1" class="form-input" style="width: 100%; padding: 8px; border: 1px solid #e2e8f0; border-radius: 5px;">
+            </div>
+            <div class="form-group" style="margin-bottom: 15px;">
+              <label style="display: block; margin-bottom: 5px; font-weight: 500;">Вариант 2:</label>
+              <input type="text" id="quiz-option2" class="form-input" style="width: 100%; padding: 8px; border: 1px solid #e2e8f0; border-radius: 5px;">
+            </div>
+            <div class="form-group" style="margin-bottom: 15px;">
+              <label style="display: block; margin-bottom: 5px; font-weight: 500;">Вариант 3:</label>
+              <input type="text" id="quiz-option3" class="form-input" style="width: 100%; padding: 8px; border: 1px solid #e2e8f0; border-radius: 5px;">
+            </div>
+            <div class="form-group" style="margin-bottom: 15px;">
+              <label style="display: block; margin-bottom: 5px; font-weight: 500;">Вариант 4:</label>
+              <input type="text" id="quiz-option4" class="form-input" style="width: 100%; padding: 8px; border: 1px solid #e2e8f0; border-radius: 5px;">
+            </div>
+            <div class="form-group" style="margin-bottom: 15px;">
+              <label style="display: block; margin-bottom: 5px; font-weight: 500;">Правильный вариант (1-4):</label>
+              <input type="number" id="quiz-correct" min="1" max="4" value="1" class="form-input" style="width: 100px; padding: 8px; border: 1px solid #e2e8f0; border-radius: 5px;">
+            </div>
+            <div class="form-group" style="margin-bottom: 15px;">
+              <label style="display: block; margin-bottom: 5px; font-weight: 500;">Пояснение:</label>
+              <textarea id="quiz-explanation" rows="3" class="form-input" style="width: 100%; padding: 8px; border: 1px solid #e2e8f0; border-radius: 5px;"></textarea>
+            </div>
+          </div>
+        </div>
+        
+        <div class="tab-content hidden" id="code-tab">
+          <div class="code-editor-tab">
+            <div class="form-group" style="margin-bottom: 15px;">
+              <label style="display: block; margin-bottom: 5px; font-weight: 500;">Описание задания:</label>
+              <textarea id="code-description" rows="5" class="form-input" style="width: 100%; padding: 8px; border: 1px solid #e2e8f0; border-radius: 5px;"></textarea>
+            </div>
+            <div class="form-group" style="margin-bottom: 15px;">
+              <label style="display: block; margin-bottom: 5px; font-weight: 500;">Стартовый код:</label>
+              <textarea id="code-starter" rows="10" class="form-input" style="width: 100%; padding: 8px; border: 1px solid #e2e8f0; border-radius: 5px; font-family: monospace;">def solution():
+    # Напишите ваш код здесь
+    pass</textarea>
+            </div>
+            <div class="form-group" style="margin-bottom: 15px;">
+              <label style="display: block; margin-bottom: 5px; font-weight: 500;">Решение (для проверки):</label>
+              <textarea id="code-solution" rows="10" class="form-input" style="width: 100%; padding: 8px; border: 1px solid #e2e8f0; border-radius: 5px; font-family: monospace;"></textarea>
+            </div>
+            
+            <h4 style="margin: 20px 0 10px 0;">Тестовые случаи</h4>
+            <div id="test-cases-container"></div>
+            <button type="button" id="add-test-case" class="btn-secondary btn-sm" style="margin-top: 10px;">+ Добавить тест</button>
+          </div>
+        </div>
+        
+        <div class="modal-actions" style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; padding-top: 20px; border-top: 1px solid #e2e8f0;">
+          <button type="button" id="save-lesson-btn" class="btn-primary">Сохранить урок</button>
+          <button type="button" class="btn-secondary" onclick="document.getElementById('modal-lesson-editor').classList.add('hidden')">Закрыть</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <template id="module-template">
+    <div class="module-card" style="border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 20px; padding: 15px; background: #f8fafc;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+        <h5 style="margin: 0;">Модуль <span class="module-number"></span></h5>
+        <button type="button" class="btn-danger btn-sm remove-module">Удалить</button>
+      </div>
+      
+      <div class="form-group" style="margin-bottom: 15px;">
+        <label style="display: block; margin-bottom: 5px; font-size: 14px;">Название модуля</label>
+        <input type="text" class="form-input module-title" placeholder="Например: Введение в Python" style="width: 100%; padding: 8px; border: 1px solid #e2e8f0; border-radius: 5px;">
+      </div>
+      
+      <div class="lessons-container"></div>
+      
+      <button type="button" class="btn-secondary btn-sm add-lesson-btn" style="margin-top: 10px;">
+        + Добавить урок
+      </button>
+    </div>
+  </template>
+
+  <template id="lesson-template">
+    <div class="lesson-row" style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px; padding: 10px; background: white; border-radius: 5px; border: 1px solid #e2e8f0;">
+      <div style="flex: 2;">
+        <input type="text" class="lesson-title-input" placeholder="Название урока" style="width: 100%; padding: 6px; border: 1px solid #e2e8f0; border-radius: 4px;">
+      </div>
+      
+      <div style="flex: 3; display: flex; gap: 15px;">
+        <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;">
+          <input type="checkbox" class="lesson-quiz-checkbox">
+          <span>📝 Тест</span>
+        </label>
+        
+        <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;">
+          <input type="checkbox" class="lesson-code-checkbox">
+          <span>💻 Код</span>
+        </label>
+        
+        <span style="color: #94a3b8; display: flex; align-items: center;">
+          <span>📖 Теория</span>
+        </span>
+      </div>
+      
+      <button type="button" class="btn-danger btn-xs remove-lesson">✕</button>
+    </div>
+  </template>
+
+  <template id="test-case-template">
+    <div class="test-case" style="border: 1px solid #e2e8f0; border-radius: 5px; padding: 15px; margin-bottom: 15px; background: #f8fafc;">
+      <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+        <h5 style="margin: 0;">Тест <span class="test-number"></span></h5>
+        <button type="button" class="btn-danger btn-xs remove-test">✕</button>
+      </div>
+      <div class="form-group" style="margin-bottom: 10px;">
+        <label style="display: block; margin-bottom: 3px; font-size: 13px;">Входные данные:</label>
+        <input type="text" class="test-input form-input" placeholder="например: 5 10" style="width: 100%; padding: 6px; border: 1px solid #e2e8f0; border-radius: 4px;">
+      </div>
+      <div class="form-group" style="margin-bottom: 10px;">
+        <label style="display: block; margin-bottom: 3px; font-size: 13px;">Ожидаемый вывод:</label>
+        <input type="text" class="test-output form-input" placeholder="например: 15" style="width: 100%; padding: 6px; border: 1px solid #e2e8f0; border-radius: 4px;">
+      </div>
+      <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;">
+        <input type="checkbox" class="test-hidden">
+        <span style="font-size: 13px;">Скрытый тест (не показывать студенту)</span>
+      </label>
+    </div>
+  </template>
+
+  <template id="course-module-editor-template">
+    <div class="editor-module" style="border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 20px; background: #f8fafc;">
+      <div style="padding: 15px; border-bottom: 1px solid #e2e8f0; background: #f1f5f9; border-radius: 8px 8px 0 0;">
+        <h4 style="margin: 0;" class="module-title-display"></h4>
+      </div>
+      
+      <div style="padding: 15px;" class="module-lessons-container"></div>
+    </div>
+  </template>
+
+  <template id="course-lesson-editor-template">
+    <div class="editor-lesson" style="border: 1px solid #e2e8f0; border-radius: 5px; margin-bottom: 15px; background: white;">
+      <div style="padding: 10px 15px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;">
+        <h5 style="margin: 0;" class="lesson-title-display"></h5>
+        <div style="display: flex; gap: 10px;" class="lesson-badges"></div>
+      </div>
+      
+      <div style="padding: 15px;">
+        <button class="btn-secondary btn-sm edit-lesson-btn" data-course-id="" data-lesson-id="" data-has-quiz="" data-has-code="">
+          Редактировать урок
+        </button>
+      </div>
+    </div>
+  </template>
+
+  <template id="admin-dashboard-template">
     <div class="admin-stats-grid">
       <div class="stat-card">
         <h3>Всего пользователей</h3>
@@ -572,9 +800,9 @@
         {{roleStats}}
       </div>
     </div>
-</template>
+  </template>
 
-<template id="admin-users-template">
+  <template id="admin-users-template">
     <div class="admin-section-header">
       <h2>Управление пользователями</h2>
       <div>
@@ -585,9 +813,9 @@
     <div class="admin-table-container">
       {{content}}
     </div>
-</template>
+  </template>
 
-<template id="user-row-template">
+  <template id="user-row-template">
     <tr data-user-id="{{id}}">
         <td>{{username}}</td>
         <td>{{email}}</td>
@@ -612,9 +840,9 @@
             </div>
         </td>
     </tr>
-</template>
+  </template>
 
-<template id="admin-statistics-template">
+  <template id="admin-statistics-template">
     <div class="stats-grid">
       <div class="stat-card large">
         <h3>Общая статистика</h3>
@@ -636,17 +864,17 @@
         {{roleDistribution}}
       </div>
     </div>
-</template>
+  </template>
 
-<template id="admin-courses-template">
+  <template id="admin-courses-template">
     <div class="admin-section">
       <h3>Управление курсами</h3>
       <p class="muted">Функциональность управления курсами будет добавлена в будущем</p>
       <button class="btn-primary" onclick="app.adminManager.createCourse()">Создать курс</button>
     </div>
-</template>
+  </template>
 
-<template id="modal-edit-user-template">
+  <template id="modal-edit-user-template">
     <div class="modal-card">
       <header><h3>Редактирование пользователя</h3></header>
       <form class="modal-form" id="form-edit-user">
@@ -670,9 +898,9 @@
         </div>
       </form>
     </div>
-</template>
+  </template>
 
-<template id="modal-change-password-admin-template">
+  <template id="modal-change-password-admin-template">
     <div class="modal-card">
       <header>
         <h3>Смена пароля</h3>
@@ -694,9 +922,9 @@
         </div>
       </form>
     </div>
-</template>
+  </template>
 
-<template id="modal-create-user-template">
+  <template id="modal-create-user-template">
     <div class="modal-card">
       <header><h3>Добавление пользователя</h3></header>
       <form class="modal-form" id="form-create-user">
@@ -733,13 +961,13 @@
         </div>
       </form>
     </div>
-</template>
+  </template>
 
-<template id="courses-grid-template">
+  <template id="courses-grid-template">
     {{courses}}
-</template>
+  </template>
 
-<template id="course-card-template">
+  <template id="course-card-template">
     <div class="course-card" data-course-id="{{id}}" onclick="app.courseManager.openCourse('{{id}}')">
       <h3 class="course-title">{{title}}</h3>
       <p class="course-description">{{description}}</p>
@@ -747,17 +975,17 @@
         <span class="difficulty {{difficulty}}">{{difficultyText}}</span>
       </div>
     </div>
-</template>
+  </template>
 
-<template id="empty-courses-template">
+  <template id="empty-courses-template">
     <div class="empty-state">
       <div class="empty-icon">🤔</div>
       <h3>Курсы не найдены</h3>
       <p>Попробуйте обновить страницу или проверьте подключение</p>
     </div>
-</template>
+  </template>
 
-<template id="teacher-courses-template">
+  <template id="teacher-courses-template">
     <div class="teacher-section-header">
       <h2>Мои курсы</h2>
     </div>
@@ -774,9 +1002,9 @@
         <p class="muted">Следите за обновлениями!</p>
       </div>
     </div>
-</template>
+  </template>
 
-<template id="teacher-students-template">
+  <template id="teacher-students-template">
     <div class="teacher-section-header">
       <h2>Мои студенты</h2>
     </div>
@@ -793,9 +1021,9 @@
         <p class="muted">Функция станет доступна после добавления первых курсов</p>
       </div>
     </div>
-</template>
+  </template>
 
-<template id="teacher-statistics-template">
+  <template id="teacher-statistics-template">
     <div class="teacher-section-header">
       <h2>Статистика преподавания</h2>
     </div>
@@ -818,9 +1046,9 @@
         </div>
       </div>
     </div>
-</template>
+  </template>
 
-<template id="quiz-container-template">
+  <template id="quiz-container-template">
     <div class="quiz-header">
         <h3>Проверка знаний</h3>
         <div class="quiz-progress">
@@ -839,105 +1067,105 @@
             <button class="btn-secondary" id="quiz-close">Закрыть тест</button>
         </div>
     </div>
-</template>
+  </template>
 
-<template id="my-courses-grid-template">
-  <div class="my-courses-header">
-    <h2>Мои курсы (<span id="my-courses-count">0</span>)</h2>
-    <p class="subtitle">Продолжайте обучение с того места, где остановились</p>
-  </div>
-  <div class="my-courses-grid" id="my-courses-list">
-  </div>
-</template>
+  <template id="my-courses-grid-template">
+    <div class="my-courses-header">
+      <h2>Мои курсы (<span id="my-courses-count">0</span>)</h2>
+      <p class="subtitle">Продолжайте обучение с того места, где остановились</p>
+    </div>
+    <div class="my-courses-grid" id="my-courses-list">
+    </div>
+  </template>
 
-<template id="my-course-card-template">
-  <div class="my-course-card {{statusClass}}">
-    <div class="course-card-header">
-      <h3 class="course-title">{{title}}</h3>
-      <span class="progress-badge">{{progress}}%</span>
+  <template id="my-course-card-template">
+    <div class="my-course-card {{statusClass}}">
+      <div class="course-card-header">
+        <h3 class="course-title">{{title}}</h3>
+        <span class="progress-badge">{{progress}}%</span>
+      </div>
+      
+      <div class="course-description">
+        {{description}}
+      </div>
+      
+      <div class="progress-container">
+        <div class="progress-bar">
+          <div class="progress-fill" style="width: {{progress}}%"></div>
+        </div>
+        <div class="progress-text">{{progress}}% завершено</div>
+      </div>
+      
+      <div class="course-meta">
+        <div class="meta-item">
+          <span class="meta-label">Записан:</span>
+          <span class="meta-value">{{enrolledAt}}</span>
+        </div>
+        {{#if lastAccessed}}
+        <div class="meta-item">
+          <span class="meta-label">Последний доступ:</span>
+          <span class="meta-value">{{lastAccessed}}</span>
+        </div>
+        {{/if}}
+      </div>
+      
+      <div class="course-actions">
+        <button class="btn-primary" onclick="app.myCoursesManager.openCourse('{{courseId}}')">
+          {{#if completed}}Повторить курс{{else}}Продолжить обучение{{/if}}
+        </button>
+        {{#if completed}}
+          <span class="completion-badge">✓ Завершен</span>
+        {{else}}
+          <span class="in-progress-badge">В процессе</span>
+        {{/if}}
+      </div>
     </div>
-    
-    <div class="course-description">
-      {{description}}
+  </template>
+
+  <template id="course-access-notice-guest">
+    <div class="course-access-notice">
+      <div class="lock-icon-large">🔒</div>
+      <h3>Войдите, чтобы начать обучение</h3>
+      <p>Для прохождения курса необходимо войти в систему</p>
+      <div class="access-actions">
+        <button class="btn-primary" onclick="app.uiManager.showModal('modal-login')">
+          Войти
+        </button>
+        <button class="btn-secondary" onclick="app.uiManager.showModal('modal-signup')">
+          Зарегистрироваться
+        </button>
+      </div>
     </div>
-    
-    <div class="progress-container">
-      <div class="progress-bar">
+  </template>
+
+  <template id="course-access-notice-not-enrolled">
+    <div class="course-access-notice">
+      <div class="lock-icon-large"></div>
+      <h3>Готовы начать обучение?</h3>
+      <p>Запишитесь на курс, чтобы получить доступ ко всем урокам и заданиям</p>
+      <div class="access-actions">
+        <button class="btn-primary" id="enroll-course-btn">
+          Приступить к обучению
+        </button>
+        <button class="btn-secondary" onclick="app.uiManager.showSection('catalog')">
+          Вернуться к каталогу
+        </button>
+      </div>
+    </div>
+  </template>
+
+  <template id="course-progress-display">
+    <div class="course-progress-display">
+      <h3>Ваш прогресс: {{progress}}%</h3>
+      <div class="progress-bar-large">
         <div class="progress-fill" style="width: {{progress}}%"></div>
       </div>
-      <div class="progress-text">{{progress}}% завершено</div>
+      <p class="muted">Продолжайте обучение! Открывайте уроки из списка слева.</p>
     </div>
-    
-    <div class="course-meta">
-      <div class="meta-item">
-        <span class="meta-label">Записан:</span>
-        <span class="meta-value">{{enrolledAt}}</span>
-      </div>
-      {{#if lastAccessed}}
-      <div class="meta-item">
-        <span class="meta-label">Последний доступ:</span>
-        <span class="meta-value">{{lastAccessed}}</span>
-      </div>
-      {{/if}}
-    </div>
-    
-    <div class="course-actions">
-      <button class="btn-primary" onclick="app.myCoursesManager.openCourse('{{courseId}}')">
-        {{#if completed}}Повторить курс{{else}}Продолжить обучение{{/if}}
-      </button>
-      {{#if completed}}
-        <span class="completion-badge">✓ Завершен</span>
-      {{else}}
-        <span class="in-progress-badge">В процессе</span>
-      {{/if}}
-    </div>
-  </div>
-</template>
+  </template>
 
-<template id="course-access-notice-guest">
-  <div class="course-access-notice">
-    <div class="lock-icon-large">🔒</div>
-    <h3>Войдите, чтобы начать обучение</h3>
-    <p>Для прохождения курса необходимо войти в систему</p>
-    <div class="access-actions">
-      <button class="btn-primary" onclick="app.uiManager.showModal('modal-login')">
-        Войти
-      </button>
-      <button class="btn-secondary" onclick="app.uiManager.showModal('modal-signup')">
-        Зарегистрироваться
-      </button>
-    </div>
-  </div>
-</template>
-
-<template id="course-access-notice-not-enrolled">
-  <div class="course-access-notice">
-    <div class="lock-icon-large"></div>
-    <h3>Готовы начать обучение?</h3>
-    <p>Запишитесь на курс, чтобы получить доступ ко всем урокам и заданиям</p>
-    <div class="access-actions">
-      <button class="btn-primary" id="enroll-course-btn">
-        Приступить к обучению
-      </button>
-      <button class="btn-secondary" onclick="app.uiManager.showSection('catalog')">
-        Вернуться к каталогу
-      </button>
-    </div>
-  </div>
-</template>
-
-<template id="course-progress-display">
-  <div class="course-progress-display">
-    <h3>Ваш прогресс: {{progress}}%</h3>
-    <div class="progress-bar-large">
-      <div class="progress-fill" style="width: {{progress}}%"></div>
-    </div>
-    <p class="muted">Продолжайте обучение! Открывайте уроки из списка слева.</p>
-  </div>
-</template>
-
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.44.0/min/vs/loader.js"></script>
-<script type="module" src="src/app.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.44.0/min/vs/loader.js"></script>
+  <script type="module" src="src/app.js"></script>
 </body>
 </html>

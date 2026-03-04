@@ -1,7 +1,10 @@
 import { ApiService } from '../services/ApiService.js';
+import { TeacherCourseCreator } from './TeacherCourseCreator.js';
+
 
 export class TeacherManager {
     constructor(apiService, uiManager) {
+        this.courseCreator = new TeacherCourseCreator(apiService, uiManager);
         this.api = apiService;
         this.uiManager = uiManager;
         this.currentView = 'dashboard';
@@ -14,6 +17,7 @@ export class TeacherManager {
     async initialize() {
         this.setupTeacherEventListeners();
         await this.loadDashboard();
+        this.courseCreator.initialize();
     }
 
     setupTeacherEventListeners() {
