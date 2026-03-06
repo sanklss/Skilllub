@@ -87,14 +87,18 @@ public class CodeExecutionService
         }
     }
 
-    public async Task<CodeExecutionResultDto> RunCodeTestsAsync(string lessonId, string code, string language, string userId, string stdin = "")
+    public async Task<CodeExecutionResultDto> RunCodeTestsAsync(
+    string lessonId,
+    string code,
+    string language,
+    string userId,
+    string stdin = "")  
     {
         try
         {
             _logger.LogInformation("Running tests for lesson {LessonId}, user {UserId}", lessonId, userId);
 
             var tests = await GetTestsForLessonAsync(lessonId, language);
-
             var passedTestIds = await GetPassedTestIdsAsync(userId, lessonId);
 
             var nextTest = tests.FirstOrDefault(t => !passedTestIds.Contains(t.Id));
@@ -115,14 +119,20 @@ public class CodeExecutionService
                         Input = t.Input,
                         ExpectedOutput = t.ExpectedOutput,
                         ActualOutput = "✅",
-                        IsHidden = t.IsHidden
+                        IsHidden = t.IsHidden,
+                        Weight = t.Weight
                     }).ToList()
                 };
             }
 
-            string processedStdin = stdin?.Replace("\\n", "\n") ?? "";
+            string testInput = !string.IsNullOrEmpty(nextTest.Input) ? nextTest.Input : stdin;
+            string processedStdin = testInput.Replace("\\n", "\n");
 
-            var request = new
+            _logger.LogInformation("🔍 Запуск теста {TestId} с input: '{Input}' (источник: {Source})",
+                nextTest.Id, testInput,
+                !string.IsNullOrEmpty(nextTest.Input) ? "БД" : "запрос");
+
+            var requestWithInput = new
             {
                 code = code,
                 language = language,
@@ -130,14 +140,50 @@ public class CodeExecutionService
                 timeout = nextTest.TimeoutMs / 1000
             };
 
-            var response = await _httpClient.PostAsJsonAsync($"{_compilerUrl}/execute", request);
-            var result = await response.Content.ReadFromJsonAsync<CodeExecutionResultDto>();
+            var responseWithInput = await _httpClient.PostAsJsonAsync($"{_compilerUrl}/execute", requestWithInput);
+            var resultWithInput = await responseWithInput.Content.ReadFromJsonAsync<CodeExecutionResultDto>();
+
+            bool inputWasUsed = true;
+            string? resultWithoutInput = null;
+
+            if (!string.IsNullOrEmpty(nextTest.Input))  
+            {
+                _logger.LogInformation("🔍 Проверка использования входных данных из БД...");
+
+                var requestWithoutInput = new
+                {
+                    code = code,
+                    language = language,
+                    stdin = "",
+                    timeout = nextTest.TimeoutMs / 1000
+                };
+
+                var responseWithoutInput = await _httpClient.PostAsJsonAsync($"{_compilerUrl}/execute", requestWithoutInput);
+                var resultWithoutInputObj = await responseWithoutInput.Content.ReadFromJsonAsync<CodeExecutionResultDto>();
+                resultWithoutInput = resultWithoutInputObj?.Output?.Trim() ?? "";
+
+                string outputWithInput = resultWithInput?.Output?.Trim() ?? "";
+
+                if (outputWithInput == resultWithoutInput)
+                {
+                    inputWasUsed = false;
+                    _logger.LogWarning("⚠️ Студент не использовал входные данные из БД! Вывод одинаковый: '{Output}'", outputWithInput);
+                }
+                else
+                {
+                    _logger.LogInformation("✅ Входные данные используются: вывод разный (с input='{Output1}', без input='{Output2}')",
+                        outputWithInput, resultWithoutInput);
+                }
+            }
 
             bool passed = false;
-            if (result?.Success == true)
+            string output = resultWithInput?.Output ?? "";
+            string error = resultWithInput?.Error ?? "";
+
+            if (resultWithInput?.Success == true)
             {
                 string normalizedExpected = nextTest.ExpectedOutput.Replace("\r\n", "\n").Replace("\r", "\n").Trim();
-                string normalizedActual = (result.Output ?? "").Replace("\r\n", "\n").Replace("\r", "\n").Trim();
+                string normalizedActual = output.Replace("\r\n", "\n").Replace("\r", "\n").Trim();
 
                 if (lessonId == "10000001-0000-0000-0000-000000000021")
                 {
@@ -145,8 +191,23 @@ public class CodeExecutionService
                 }
                 else
                 {
-                    passed = normalizedActual == normalizedExpected;
+                    if (!string.IsNullOrEmpty(nextTest.Input))
+                    {
+                        passed = inputWasUsed && (normalizedActual == normalizedExpected);
+
+                        if (!inputWasUsed && normalizedActual == normalizedExpected)
+                        {
+                            _logger.LogWarning("❌ Тест не пройден: вывод правильный, но входные данные из БД не используются!");
+                        }
+                    }
+                    else
+                    {
+                        passed = normalizedActual == normalizedExpected;
+                    }
                 }
+
+                _logger.LogInformation("📊 Результат: input='{Input}', вывод='{Output}', ожидалось='{Expected}', inputUsed={InputUsed} → {Result}",
+                    testInput, normalizedActual, normalizedExpected, inputWasUsed, passed ? "✅" : "❌");
             }
 
             var testResults = new List<TestResultDto>();
@@ -157,16 +218,32 @@ public class CodeExecutionService
                 var test = tests[i];
                 bool isPassed = passedTestIds.Contains(test.Id) || (i == currentTestIndex && passed);
 
+                string actualOutput = "⏳";
+                if (i == currentTestIndex)
+                {
+                    actualOutput = resultWithInput?.Output ?? "";
+
+                    if (!inputWasUsed && !string.IsNullOrEmpty(test.Input))
+                    {
+                        actualOutput += "\n⚠️ ВНИМАНИЕ: Входные данные из задания не используются!";
+                    }
+                }
+                else if (isPassed)
+                {
+                    actualOutput = "✅";
+                }
+
                 testResults.Add(new TestResultDto
                 {
                     TestId = i,
                     Passed = isPassed,
                     Input = test.Input,
                     ExpectedOutput = test.ExpectedOutput,
-                    ActualOutput = isPassed ? "✅" : (i == currentTestIndex ? result?.Output ?? "" : "⏳"),
-                    ExecutionTimeMs = i == currentTestIndex ? result?.ExecutionTimeMs ?? 0 : 0,
+                    ActualOutput = actualOutput,
+                    ExecutionTimeMs = i == currentTestIndex ? (resultWithInput?.ExecutionTimeMs ?? 0) : 0,
                     IsHidden = test.IsHidden,
-                    Weight = test.Weight  
+                    Weight = test.Weight,
+                    ErrorMessage = i == currentTestIndex ? error : null
                 });
             }
 
@@ -174,23 +251,41 @@ public class CodeExecutionService
             int totalTests = tests.Count;
             int score = totalTests > 0 ? (passedCount * 100 / totalTests) : 0;
 
+            string outputMessage;
+            if (!string.IsNullOrEmpty(nextTest.Input) && !inputWasUsed && passed)
+            {
+                outputMessage = $"⚠️ Тест {currentTestIndex + 1} ПРЕДУПРЕЖДЕНИЕ: вывод правильный, но входные данные из задания не используются!";
+            }
+            else if (passed)
+            {
+                outputMessage = $"✅ Тест {currentTestIndex + 1} пройден! Осталось {totalTests - passedCount} тестов.";
+            }
+            else
+            {
+                outputMessage = $"❌ Тест {currentTestIndex + 1} не пройден. Ожидалось: '{nextTest.ExpectedOutput}', получено: '{output}'";
+
+                if (!string.IsNullOrEmpty(nextTest.Input) && !inputWasUsed)
+                {
+                    outputMessage += " (входные данные из задания не используются)";
+                }
+            }
+
             var finalResult = new CodeExecutionResultDto
             {
                 Success = passed,
+                Output = outputMessage,
                 TestResults = testResults,
                 PassedTests = passedCount,
                 TotalTests = totalTests,
                 Score = score,
-                Output = passed ?
-                    $"✅ Тест {currentTestIndex + 1} пройден! Осталось {tests.Count - passedCount} тестов." :
-                    $"❌ Тест {currentTestIndex + 1} не пройден. Попробуйте еще раз."
+                Error = error
             };
 
             var submission = await SaveSubmissionWithTestsAsync(userId, lessonId, language, code, finalResult, tests);
 
-            if (passedCount == totalTests)
+            if (passedCount == totalTests && totalTests > 0)
             {
-                _logger.LogInformation("All tests passed for lesson {LessonId}, marking code as completed", lessonId);
+                _logger.LogInformation("✅ All tests passed for lesson {LessonId}, marking code as completed", lessonId);
                 await _progressService.MarkCodeAsCompletedAsync(userId, lessonId, score);
             }
 
@@ -202,7 +297,7 @@ public class CodeExecutionService
             return new CodeExecutionResultDto
             {
                 Success = false,
-                Error = "Ошибка при запуске тестов"
+                Error = "Ошибка при запуске тестов: " + ex.Message
             };
         }
     }
