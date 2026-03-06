@@ -8,6 +8,8 @@ export class TeacherCourseCreator {
         this.modules = [];
         this.currentCourseData = null;
         this.baseUrl = 'https://localhost:7000';
+        this.cachedTestCases = [];
+        this.cachedQuizData = null;
     }
 
     initialize() {
@@ -396,19 +398,19 @@ export class TeacherCourseCreator {
     }
 
     async saveCourseTemplate() {
-    const title = document.getElementById('course-title')?.value;
-    if (!title) {
-        this.uiManager.showToast('Введите название курса', 'warning');
-        return;
-    }
+        const title = document.getElementById('course-title')?.value;
+        if (!title) {
+            this.uiManager.showToast('Введите название курса', 'warning');
+            return;
+        }
 
-    const token = localStorage.getItem('authToken');
-    console.log('Токен:', token);
-    
-    if (!token) {
-        this.uiManager.showToast('Ошибка авторизации. Войдите заново.', 'error');
-        return;
-    }
+        const token = localStorage.getItem('authToken');
+        console.log('Токен:', token);
+        
+        if (!token) {
+            this.uiManager.showToast('Ошибка авторизации. Войдите заново.', 'error');
+            return;
+        }
 
         const modules = [];
         const container = document.getElementById('modules-list');
@@ -468,6 +470,7 @@ export class TeacherCourseCreator {
             
             if (result.success) {
                 this.currentCourseId = result.course.courseId;
+                console.log('✅ ID курса сохранен:', this.currentCourseId);
                 this.uiManager.showToast('Черновик курса создан!', 'success');
                 document.getElementById('modal-create-course').classList.add('hidden');
                 await this.showCourseEditor(this.currentCourseId);
@@ -483,119 +486,137 @@ export class TeacherCourseCreator {
     }
 
     async showCourseEditor(courseId) {
-    console.log('📝 showCourseEditor для курса:', courseId);
-    try {
-        const token = localStorage.getItem('authToken');
-        const response = await fetch(`${this.baseUrl}/api/teacher-course/${courseId}/structure`, {
-            headers: {
-                'Authorization': `Bearer ${token}`
+        console.log('📝 showCourseEditor для курса:', courseId);
+        this.currentCourseId = courseId;
+        
+        try {
+            const token = localStorage.getItem('authToken');
+            const response = await fetch(`${this.baseUrl}/api/teacher-course/${courseId}/structure`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            
+            const result = await response.json();
+            console.log('📥 Ответ от сервера:', result);
+            
+            if (result.success && result.structure) {
+                this.currentCourseData = result.structure;
+                this.renderCourseEditor(result.structure);
+            } else {
+                console.error('❌ Структура не получена:', result);
+                this.uiManager.showToast('Ошибка загрузки структуры курса', 'error');
             }
-        });
-        
-        const result = await response.json();
-        console.log('📥 Ответ от сервера:', result);
-        
-        if (result.success && result.structure) {
-            this.currentCourseData = result.structure;
-            this.renderCourseEditor(result.structure);
-        } else {
-            console.error('❌ Структура не получена:', result);
+        } catch (error) {
+            console.error('❌ Ошибка загрузки структуры:', error);
             this.uiManager.showToast('Ошибка загрузки структуры курса', 'error');
         }
-    } catch (error) {
-        console.error('❌ Ошибка загрузки структуры:', error);
-        this.uiManager.showToast('Ошибка загрузки структуры курса', 'error');
     }
-}
 
     renderCourseEditor(structure) {
-    console.log('📝 renderCourseEditor, структура:', structure);
-    
-    const modal = document.getElementById('modal-course-editor');
-    if (!modal) {
-        console.error('❌ modal-course-editor не найден');
-        return;
-    }
-    
-    if (!structure || !structure.course) {
-        console.error('❌ Неверная структура:', structure);
-        return;
-    }
-    
-    document.getElementById('editor-course-title').textContent = structure.course.title || 'Без названия';
-    
-    const container = document.getElementById('course-structure-container');
-    if (!container) {
-        console.error('❌ course-structure-container не найден');
-        return;
-    }
-    
-    container.innerHTML = '';
-    
-    if (!structure.modules || structure.modules.length === 0) {
-        container.innerHTML = '<p class="muted">В курсе нет модулей</p>';
-        modal.classList.remove('hidden');
-        return;
-    }
-    
-    structure.modules.forEach((module) => {
-        const moduleDiv = document.createElement('div');
-        moduleDiv.className = 'editor-module';
-        moduleDiv.style.cssText = 'border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 20px; background: #f8fafc;';
+        console.log('📝 renderCourseEditor, структура:', structure);
         
-        let moduleHtml = `
-            <div style="padding: 15px; border-bottom: 1px solid #e2e8f0; background: #f1f5f9; border-radius: 8px 8px 0 0;">
-                <h4 style="margin: 0;">${module.title || 'Без названия'}</h4>
-            </div>
-            <div style="padding: 15px;">
-        `;
-        
-        if (module.lessons && module.lessons.length > 0) {
-            module.lessons.forEach((lesson) => {
-                let badges = '';
-                if (lesson.hasTheory) {
-                    badges += '<span style="background: #64748b; color: white; padding: 3px 8px; border-radius: 12px; font-size: 12px; margin-right: 5px;">📖 Теория</span>';
-                }
-                if (lesson.hasQuiz) {
-                    badges += '<span style="background: #3b82f6; color: white; padding: 3px 8px; border-radius: 12px; font-size: 12px; margin-right: 5px;">📝 Тест</span>';
-                }
-                if (lesson.hasCode) {
-                    badges += '<span style="background: #10b981; color: white; padding: 3px 8px; border-radius: 12px; font-size: 12px; margin-right: 5px;">💻 Код</span>';
-                }
-                
-                moduleHtml += `
-                    <div style="border: 1px solid #e2e8f0; border-radius: 5px; margin-bottom: 15px; background: white;">
-                        <div style="padding: 10px 15px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;">
-                            <h5 style="margin: 0;">${lesson.title || 'Без названия'}</h5>
-                            <div>${badges}</div>
-                        </div>
-                        <div style="padding: 15px;">
-                            <button class="btn-secondary btn-sm edit-lesson-btn" 
-                                data-course-id="${structure.course.id}" 
-                                data-lesson-id="${lesson.id}" 
-                                data-has-quiz="${lesson.hasQuiz || false}" 
-                                data-has-code="${lesson.hasCode || false}">
-                                Редактировать урок
-                            </button>
-                        </div>
-                    </div>
-                `;
-            });
-        } else {
-            moduleHtml += '<p class="muted">Нет уроков</p>';
+        const modal = document.getElementById('modal-course-editor');
+        if (!modal) {
+            console.error('❌ modal-course-editor не найден');
+            return;
         }
         
-        moduleHtml += '</div>';
-        moduleDiv.innerHTML = moduleHtml;
-        container.appendChild(moduleDiv);
-    });
-    
-    modal.classList.remove('hidden');
-    console.log('✅ Редактор курса открыт');
-}
+        if (!structure || !structure.course) {
+            console.error('❌ Неверная структура:', structure);
+            return;
+        }
+        
+        document.getElementById('editor-course-title').textContent = structure.course.title || 'Без названия';
+        
+        const container = document.getElementById('course-structure-container');
+        if (!container) {
+            console.error('❌ course-structure-container не найден');
+            return;
+        }
+        
+        container.innerHTML = '';
+        
+        if (!structure.modules || structure.modules.length === 0) {
+            container.innerHTML = '<p class="muted">В курсе нет модулей</p>';
+            modal.classList.remove('hidden');
+            return;
+        }
+        
+        structure.modules.forEach((module) => {
+            const moduleDiv = document.createElement('div');
+            moduleDiv.className = 'editor-module';
+            moduleDiv.style.cssText = 'border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 20px; background: #f8fafc;';
+            
+            let moduleHtml = `
+                <div style="padding: 15px; border-bottom: 1px solid #e2e8f0; background: #f1f5f9; border-radius: 8px 8px 0 0;">
+                    <h4 style="margin: 0;">${module.title || 'Без названия'}</h4>
+                </div>
+                <div style="padding: 15px;">
+            `;
+            
+            if (module.lessons && module.lessons.length > 0) {
+                module.lessons.forEach((lesson) => {
+                    let badges = '';
+                    if (lesson.hasTheory) {
+                        badges += '<span style="background: #64748b; color: white; padding: 3px 8px; border-radius: 12px; font-size: 12px; margin-right: 5px;">📖 Теория</span>';
+                    }
+                    if (lesson.hasQuiz) {
+                        badges += '<span style="background: #3b82f6; color: white; padding: 3px 8px; border-radius: 12px; font-size: 12px; margin-right: 5px;">📝 Тест</span>';
+                    }
+                    if (lesson.hasCode) {
+                        badges += '<span style="background: #10b981; color: white; padding: 3px 8px; border-radius: 12px; font-size: 12px; margin-right: 5px;">💻 Код</span>';
+                    }
+                    
+                    moduleHtml += `
+                        <div style="border: 1px solid #e2e8f0; border-radius: 5px; margin-bottom: 15px; background: white;">
+                            <div style="padding: 10px 15px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;">
+                                <h5 style="margin: 0;">${lesson.title || 'Без названия'}</h5>
+                                <div>${badges}</div>
+                            </div>
+                            <div style="padding: 15px;">
+                                <button class="btn-secondary btn-sm edit-lesson-btn" 
+                                    data-course-id="${structure.course.id}" 
+                                    data-lesson-id="${lesson.id}" 
+                                    data-has-quiz="${lesson.hasQuiz || false}" 
+                                    data-has-code="${lesson.hasCode || false}">
+                                    Редактировать урок
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                });
+            } else {
+                moduleHtml += '<p class="muted">Нет уроков</p>';
+            }
+            
+            moduleHtml += '</div>';
+            moduleDiv.innerHTML = moduleHtml;
+            container.appendChild(moduleDiv);
+        });
+        
+        const publishBtn = document.getElementById('publish-course-btn');
+        if (publishBtn) {
+            const newPublishBtn = publishBtn.cloneNode(true);
+            publishBtn.parentNode.replaceChild(newPublishBtn, publishBtn);
+            
+            newPublishBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                console.log('📢 Кнопка опубликовать нажата');
+                this.publishCourse();
+            });
+        }
+        
+        modal.classList.remove('hidden');
+        console.log('✅ Редактор курса открыт');
+    }
 
     async openLessonEditor(courseId, lessonId, hasQuiz, hasCode) {
         console.log('📝 Открытие редактора урока:', { courseId, lessonId, hasQuiz, hasCode });
+        
+        // Очищаем кэш при открытии нового урока
+        this.cachedTestCases = [];
+        this.cachedQuizData = null;
         
         const modal = document.getElementById('modal-lesson-editor');
         if (!modal) return;
@@ -699,98 +720,17 @@ export class TeacherCourseCreator {
         }
     }
 
-    async saveLessonContent() {
-        console.log('💾 Сохранение урока');
-        
-        const courseId = document.getElementById('lesson-editor-course-id').value;
-        const lessonId = document.getElementById('lesson-editor-lesson-id').value;
-        const token = localStorage.getItem('authToken');
-        
-        const theoryContent = document.getElementById('theory-content').value;
-        if (theoryContent) {
-            try {
-                await fetch(`${this.baseUrl}/api/teacher-course/${courseId}/lesson/${lessonId}/theory`, {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                    },
-                    body: JSON.stringify({ content: theoryContent })
-                });
-            } catch (error) {
-                console.error('Ошибка сохранения теории:', error);
-            }
-        }
-        
-        const quizTabBtn = document.getElementById('tab-quiz-btn');
-        if (quizTabBtn && quizTabBtn.style.display !== 'none') {
-            const quizData = {
-                questionText: document.getElementById('quiz-question').value,
-                option1: document.getElementById('quiz-option1').value,
-                option2: document.getElementById('quiz-option2').value,
-                option3: document.getElementById('quiz-option3').value,
-                option4: document.getElementById('quiz-option4').value,
-                correctOption: parseInt(document.getElementById('quiz-correct').value),
-                explanation: document.getElementById('quiz-explanation').value
-            };
-            
-            if (quizData.questionText && quizData.option1) {
-                try {
-                    await fetch(`${this.baseUrl}/api/teacher-course/${courseId}/lesson/${lessonId}/quiz`, {
-                        method: 'PUT',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${token}`
-                        },
-                        body: JSON.stringify(quizData)
-                    });
-                } catch (error) {
-                    console.error('Ошибка сохранения теста:', error);
-                }
-            }
-        }
-        
-        const codeTabBtn = document.getElementById('tab-code-btn');
-        if (codeTabBtn && codeTabBtn.style.display !== 'none') {
-            const testCases = [];
-            document.querySelectorAll('.test-case').forEach(test => {
-                const input = test.querySelector('.test-input').value;
-                const output = test.querySelector('.test-output').value;
-                if (input && output) {
-                    testCases.push({
-                        input: input,
-                        expectedOutput: output,
-                        isHidden: test.querySelector('.test-hidden').checked
-                    });
-                }
-            });
-            
-            const codeData = {
-                taskDescription: document.getElementById('code-description').value,
-                starterCode: document.getElementById('code-starter').value,
-                solutionCode: document.getElementById('code-solution').value,
-                testCases: testCases
-            };
-            
-            try {
-                await fetch(`${this.baseUrl}/api/teacher-course/${courseId}/lesson/${lessonId}/code`, {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                    },
-                    body: JSON.stringify(codeData)
-                });
-            } catch (error) {
-                console.error('Ошибка сохранения кода:', error);
-            }
-        }
-        
-        this.uiManager.showToast('Урок сохранен', 'success');
-        document.getElementById('modal-lesson-editor').classList.add('hidden');
-    }
-
     switchTab(tabName) {
+        const codeTab = document.getElementById('code-tab');
+        if (codeTab && !codeTab.classList.contains('hidden')) {
+            this.cacheCurrentTestCases();
+        }
+        
+        const quizTab = document.getElementById('quiz-tab');
+        if (quizTab && !quizTab.classList.contains('hidden')) {
+            this.cacheCurrentQuizData();
+        }
+        
         document.querySelectorAll('.tab-btn').forEach(btn => {
             btn.classList.remove('active');
         });
@@ -804,6 +744,78 @@ export class TeacherCourseCreator {
         
         const activeTab = document.getElementById(`${tabName}-tab`);
         if (activeTab) activeTab.classList.remove('hidden');
+        
+        if (tabName === 'code') {
+            this.restoreCachedTestCases();
+        }
+        
+        if (tabName === 'quiz') {
+            this.restoreCachedQuizData();
+        }
+    }
+
+    cacheCurrentTestCases() {
+        this.cachedTestCases = [];
+        const testElements = document.querySelectorAll('.test-case');
+        
+        testElements.forEach(test => {
+            const input = test.querySelector('.test-input')?.value || '';
+            const output = test.querySelector('.test-output')?.value || '';
+            const isHidden = test.querySelector('.test-hidden')?.checked || false;
+            
+            this.cachedTestCases.push({
+                input,
+                output,
+                isHidden
+            });
+        });
+        
+        console.log('💾 Тесты сохранены в кэш:', this.cachedTestCases);
+    }
+
+    restoreCachedTestCases() {
+        const container = document.getElementById('test-cases-container');
+        if (!container) return;
+        
+        container.innerHTML = '';
+        
+        if (this.cachedTestCases.length > 0) {
+            this.cachedTestCases.forEach(test => {
+                this.addTestCase(test.input, test.output, test.isHidden);
+            });
+        } else {
+            this.addTestCase();
+        }
+        
+        console.log('📋 Тесты восстановлены из кэша:', this.cachedTestCases);
+    }
+
+    cacheCurrentQuizData() {
+        this.cachedQuizData = {
+            questionText: document.getElementById('quiz-question').value,
+            option1: document.getElementById('quiz-option1').value,
+            option2: document.getElementById('quiz-option2').value,
+            option3: document.getElementById('quiz-option3').value,
+            option4: document.getElementById('quiz-option4').value,
+            correctOption: document.getElementById('quiz-correct').value,
+            explanation: document.getElementById('quiz-explanation').value
+        };
+        
+        console.log('💾 Данные теста сохранены в кэш:', this.cachedQuizData);
+    }
+
+    restoreCachedQuizData() {
+        if (!this.cachedQuizData) return;
+        
+        document.getElementById('quiz-question').value = this.cachedQuizData.questionText || '';
+        document.getElementById('quiz-option1').value = this.cachedQuizData.option1 || '';
+        document.getElementById('quiz-option2').value = this.cachedQuizData.option2 || '';
+        document.getElementById('quiz-option3').value = this.cachedQuizData.option3 || '';
+        document.getElementById('quiz-option4').value = this.cachedQuizData.option4 || '';
+        document.getElementById('quiz-correct').value = this.cachedQuizData.correctOption || '1';
+        document.getElementById('quiz-explanation').value = this.cachedQuizData.explanation || '';
+        
+        console.log('📋 Данные теста восстановлены из кэша');
     }
 
     addTestCase(input = '', output = '', isHidden = false) {
@@ -846,13 +858,106 @@ export class TeacherCourseCreator {
         });
     }
 
+    async saveLessonContent() {
+    console.log('💾 Сохранение урока');
+    
+    const courseId = document.getElementById('lesson-editor-course-id').value;
+    const lessonId = document.getElementById('lesson-editor-lesson-id').value;
+    const token = localStorage.getItem('authToken');
+    
+    const theoryContent = document.getElementById('theory-content').value;
+    if (theoryContent) {
+        await fetch(`${this.baseUrl}/api/teacher-course/${courseId}/lesson/${lessonId}/theory`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ content: theoryContent })
+        });
+    }
+    
+    const quizTabBtn = document.getElementById('tab-quiz-btn');
+    if (quizTabBtn && quizTabBtn.style.display !== 'none') {
+        const quizData = {
+            questionText: document.getElementById('quiz-question').value,
+            option1: document.getElementById('quiz-option1').value,
+            option2: document.getElementById('quiz-option2').value,
+            option3: document.getElementById('quiz-option3').value,
+            option4: document.getElementById('quiz-option4').value,
+            correctOption: parseInt(document.getElementById('quiz-correct').value),
+            explanation: document.getElementById('quiz-explanation').value
+        };
+        
+        await fetch(`${this.baseUrl}/api/teacher-course/${courseId}/lesson/${lessonId}/quiz`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify(quizData)
+        });
+    }
+    
+    const codeTabBtn = document.getElementById('tab-code-btn');
+    if (codeTabBtn && codeTabBtn.style.display !== 'none') {
+        const testCases = [];
+        document.querySelectorAll('.test-case').forEach(test => {
+            const input = test.querySelector('.test-input')?.value || '';
+            const output = test.querySelector('.test-output')?.value || '';
+            const isHidden = test.querySelector('.test-hidden')?.checked || false;
+            
+            if (output.trim() !== '') {
+                testCases.push({
+                    input: input,
+                    expectedOutput: output,
+                    isHidden: isHidden
+                });
+                console.log(`📝 Добавлен тест: input="${input}", output="${output}"`);
+            }
+        });
+        
+        console.log(`📊 Всего тестов для отправки: ${testCases.length}`);
+        
+        const codeData = {
+            taskDescription: document.getElementById('code-description').value || '',
+            starterCode: document.getElementById('code-starter').value || '',
+            solutionCode: document.getElementById('code-solution').value || '',
+            testCases: testCases
+        };
+        
+        await fetch(`${this.baseUrl}/api/teacher-course/${courseId}/lesson/${lessonId}/code`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify(codeData)
+        });
+    }
+    
+    this.uiManager.showToast('Урок сохранен', 'success');
+    document.getElementById('modal-lesson-editor').classList.add('hidden');
+}
+
     async publishCourse() {
-        if (!this.currentCourseId) return;
+        console.log('📢 Кнопка опубликовать нажата');
+        
+        if (!this.currentCourseId) {
+            console.error('❌ Нет ID курса');
+            this.uiManager.showToast('Нет ID курса', 'error');
+            return;
+        }
         
         if (!confirm('Опубликовать курс? После публикации курс станет доступен для студентов.')) return;
         
         try {
             const token = localStorage.getItem('authToken');
+            console.log('📤 Отправка запроса на публикацию:', {
+                courseId: this.currentCourseId,
+                url: `${this.baseUrl}/api/teacher-course/${this.currentCourseId}/publish`
+            });
+            
             const response = await fetch(`${this.baseUrl}/api/teacher-course/${this.currentCourseId}/publish`, {
                 method: 'POST',
                 headers: {
@@ -862,7 +967,18 @@ export class TeacherCourseCreator {
                 body: JSON.stringify({ courseId: this.currentCourseId })
             });
 
-            const result = await response.json();
+            console.log('📥 Статус ответа:', response.status);
+            
+            const responseText = await response.text();
+            console.log('📥 Текст ответа:', responseText);
+            
+            let result;
+            try {
+                result = JSON.parse(responseText);
+            } catch (e) {
+                console.error('❌ Ответ не JSON:', responseText);
+                throw new Error('Сервер вернул некорректный ответ');
+            }
             
             if (result.success) {
                 this.uiManager.showToast('Курс успешно опубликован!', 'success');
@@ -875,7 +991,7 @@ export class TeacherCourseCreator {
                 throw new Error(result.error || 'Ошибка публикации');
             }
         } catch (error) {
-            console.error('Ошибка:', error);
+            console.error('❌ Ошибка:', error);
             this.uiManager.showToast(error.message, 'error');
         }
     }

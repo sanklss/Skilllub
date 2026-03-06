@@ -1032,11 +1032,9 @@ escapeHtml(text) {
     try {
         this.uiManager.showButtonLoading('submit-code', true);
         
-        // ===== 1. СНАЧАЛА ЗАПУСКАЕМ КОД (как при нажатии "Запустить код") =====
         const runResponse = await this.api.runCode(code, language, inputData);
         const runResult = runResponse.result || runResponse;
         
-        // Показываем вывод программы
         let outputSection = document.getElementById('code-output-section');
         if (!outputSection) {
             outputSection = document.createElement('div');
@@ -1053,7 +1051,6 @@ escapeHtml(text) {
         let programOutput = runResult.output || 'Код выполнен без вывода';
         outputSection.innerHTML = `<div class="output-content">${programOutput}</div>`;
         
-        // ===== 2. ТЕПЕРЬ ЗАПУСКАЕМ ТЕСТЫ =====
         const testResponse = await this.api.runCodeTests(
             this.currentLesson.id, 
             code, 
@@ -1066,15 +1063,27 @@ escapeHtml(text) {
         this.uiManager.showButtonLoading('submit-code', false);
         
         if (testResponse.success && testResponse.result) {
-            // Показываем результаты тестов
             this.showTestResults(testResponse.result);
             
             if (testResponse.result.passedTests === testResponse.result.totalTests && 
                 testResponse.result.totalTests > 0) {
                 
                 this.uiManager.showToast('🎉 Задание выполнено! Урок завершен.', 'success');
+                
                 await this.refreshLessonStatus(this.currentLesson.id);
+                
                 await this.checkAndUpdateModuleCompletion();
+                
+                if (this.currentCourse) {
+                    console.log('🎯 Проверяем завершение курса после выполнения кода...');
+                    const oldProgress = this.courseProgress;
+                    await this.updateCourseProgressInUI(this.currentCourse.id);
+                    
+                    if (oldProgress < 100 && this.courseProgress >= 100) {
+                        console.log('🎉 Курс достиг 100% через кодовое задание!');
+                        await this.checkCourseCompletion(this.currentCourse.id);
+                    }
+                }
             } else {
                 this.uiManager.showToast(`❌ Пройдено ${testResponse.result.passedTests || 0} из ${testResponse.result.totalTests || 0} тестов`, 'warning');
             }
@@ -1088,7 +1097,6 @@ escapeHtml(text) {
         this.uiManager.showButtonLoading('submit-code', false);
     }
 }
-
     async checkAndUpdateLessonStatus(lessonId) {
         try {
             if (!this.userId) return;
