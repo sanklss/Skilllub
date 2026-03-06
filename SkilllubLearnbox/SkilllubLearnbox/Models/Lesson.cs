@@ -24,6 +24,11 @@ public class Lesson : BaseModel
 
     [Column("lesson_order")]
     public int LessonOrder { get; set; }
+    [Column("has_quiz")]
+    public bool HasQuiz { get; set; } = false;
+
+    [Column("has_code")]
+    public bool HasCode { get; set; } = false;
 
     [Column("difficulty")]
     public string Difficulty { get; set; } = "easy";

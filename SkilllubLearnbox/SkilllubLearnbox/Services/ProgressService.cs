@@ -2,12 +2,7 @@
 using Microsoft.Extensions.Logging;
 using SkilllubLearnbox.DTOs;
 using SkilllubLearnbox.Models;
-using Supabase;
 using Supabase.Postgrest;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 using static Supabase.Postgrest.Constants;
 
 namespace SkilllubLearnbox.Services;
@@ -558,24 +553,27 @@ public class ProgressService
 
             progress.TheoryCompleted = true;
             progress.QuizCompleted = true;
-            progress.CodeCompleted = true;
-            progress.Completed = true;
-            progress.LastAttempt = DateTime.UtcNow;
-            progress.AttemptsCount++;
 
-            await _client.From<UserProgress>().Update(progress);
-            _logger.LogInformation("✅ Урок {LessonId} отмечен как завершенный (CompleteLessonAsync)", lessonId);
+            var (hasQuiz, hasCodeExercise) = await GetLessonRequirementsAsync(lessonId);
 
-            var lessonInfo = await GetLessonBasicInfoAsync(lessonId);
-            if (lessonInfo != null)
+            bool shouldBeCompleted = progress.TheoryCompleted &&
+                                     (!hasQuiz || progress.QuizCompleted) &&
+                                     (!hasCodeExercise || progress.CodeCompleted);
+
+            if (shouldBeCompleted && !progress.Completed)
             {
-                await CheckAndCompleteModuleAsync(userId, lessonInfo.Value.ModuleId);
+                progress.Completed = true;
+                progress.LastAttempt = DateTime.UtcNow;
+                progress.AttemptsCount++;
 
-                var module = await GetModuleByIdAsync(lessonInfo.Value.ModuleId);
-                if (module != null && !string.IsNullOrEmpty(module.CourseId))
-                {
-                    await UpdateCourseProgressAsync(userId, module.CourseId);
-                }
+                await _client.From<UserProgress>().Update(progress);
+                _logger.LogInformation("✅ Урок {LessonId} отмечен как завершенный", lessonId);
+            }
+            else
+            {
+                await _client.From<UserProgress>().Update(progress);
+                _logger.LogInformation("📝 Прогресс урока {LessonId} обновлен, но урок еще не завершен (codeCompleted={CodeCompleted})",
+                    lessonId, progress.CodeCompleted);
             }
         }
         catch (Exception ex)

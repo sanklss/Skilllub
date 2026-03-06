@@ -53,7 +53,6 @@ public class TestCaseDto
     public string ExpectedOutput { get; set; } = "";
     public bool IsHidden { get; set; } = false;
     public int TimeoutMs { get; set; } = 5000;
-    public int Weight { get; set; } = 1;
 }
 
 public class CourseTemplateResponseDto

@@ -18,8 +18,8 @@ public class TeacherCourseService
     }
 
     public async Task<CourseTemplateResponseDto> CreateCourseTemplateAsync(
-        string teacherId,
-        CreateCourseStructureDto dto)
+    string teacherId,
+    CreateCourseStructureDto dto)
     {
         try
         {
@@ -70,6 +70,11 @@ public class TeacherCourseService
                         ? dto.Modules[i].Lessons[j].Title
                         : $"Урок {j + 1}";
 
+                    var lessonTemplate = dto.Modules.Count > i &&
+                                         dto.Modules[i].Lessons.Count > j
+                        ? dto.Modules[i].Lessons[j]
+                        : null;
+
                     var lesson = new Lesson
                     {
                         Id = Guid.NewGuid().ToString(),
@@ -79,17 +84,14 @@ public class TeacherCourseService
                         Content = "Содержание урока будет добавлено позже",
                         LessonOrder = j + 1,
                         Difficulty = "easy",
-                        CreatedAt = DateTime.UtcNow
+                        CreatedAt = DateTime.UtcNow,
+                        HasQuiz = lessonTemplate?.HasQuiz ?? false,
+                        HasCode = lessonTemplate?.HasCode ?? false
                     };
 
                     await _client.From<Lesson>().Insert(lesson);
                     _logger.LogInformation("    📝 Создан урок: {LessonTitle}", lesson.Title);
                     totalLessons++;
-
-                    var lessonTemplate = dto.Modules.Count > i &&
-                                         dto.Modules[i].Lessons.Count > j
-                        ? dto.Modules[i].Lessons[j]
-                        : null;
 
                     if (lessonTemplate != null)
                     {
@@ -205,30 +207,42 @@ public class TeacherCourseService
     }
 
     public async Task<bool> UpdateLessonQuizAsync(
-        string teacherId,
-        string courseId,
-        string lessonId,
-        QuizContentDto quiz)
+    string teacherId,
+    string courseId,
+    string lessonId,
+    QuizContentDto quiz)
     {
         try
         {
+            _logger.LogWarning("========== СОХРАНЕНИЕ ТЕСТА ==========");
+            _logger.LogWarning("LessonId: {LessonId}", lessonId);
+            _logger.LogWarning("Данные теста: Вопрос='{Q}', Вариант1='{O1}'",
+                quiz.QuestionText, quiz.Option1);
+
             await _client.InitializeAsync();
 
             var course = await VerifyCourseOwnership(teacherId, courseId);
             if (course == null)
+            {
+                _logger.LogWarning("❌ Курс не найден");
                 return false;
+            }
 
             var lesson = await VerifyLessonBelongsToCourse(lessonId, courseId);
             if (lesson == null)
+            {
+                _logger.LogWarning("❌ Урок не найден");
                 return false;
+            }
 
             var existingQuestions = await _client
                 .From<QuizQuestion>()
-                .Where(q => q.LessonId == lessonId)
+                .Filter("lesson_id", Supabase.Postgrest.Constants.Operator.Equals, lessonId)
                 .Get();
 
-            if (existingQuestions.Models != null)
+            if (existingQuestions.Models != null && existingQuestions.Models.Any())
             {
+                _logger.LogWarning("🗑️ Удаляем {Count} старых вопросов", existingQuestions.Models.Count);
                 foreach (var q in existingQuestions.Models)
                 {
                     await _client.From<QuizQuestion>().Delete(q);
@@ -245,12 +259,20 @@ public class TeacherCourseService
                 Option3 = quiz.Option3,
                 Option4 = quiz.Option4,
                 CorrectOption = quiz.CorrectOption,
-                Explanation = quiz.Explanation,
+                Explanation = quiz.Explanation
             };
 
             await _client.From<QuizQuestion>().Insert(quizQuestion);
+            _logger.LogWarning("✅ Новый вопрос создан с ID: {QuestionId}", quizQuestion.Id);
 
-            _logger.LogInformation("✅ Тест для урока {LessonId} сохранен", lessonId);
+            var check = await _client
+                .From<QuizQuestion>()
+                .Filter("lesson_id", Supabase.Postgrest.Constants.Operator.Equals, lessonId)
+                .Get();
+
+            _logger.LogWarning("🔍 ПРОВЕРКА: в БД {Count} вопросов", check.Models?.Count ?? 0);
+            _logger.LogWarning("========== КОНЕЦ СОХРАНЕНИЯ ТЕСТА ==========");
+
             return true;
         }
         catch (Exception ex)
@@ -264,151 +286,260 @@ public class TeacherCourseService
     {
         try
         {
+            _logger.LogWarning("========== ЗАГРУЗКА КОДА ==========");
+            _logger.LogWarning("LessonId: {LessonId}", lessonId);
+            _logger.LogWarning("CourseId: {CourseId}", courseId);
+
             await _client.InitializeAsync();
 
             var lesson = await VerifyLessonBelongsToCourse(lessonId, courseId);
-            if (lesson == null) return null;
+            if (lesson == null)
+            {
+                _logger.LogWarning("❌ Урок не найден или не принадлежит курсу");
+                return null;
+            }
 
-            var languages = await _client
-                .From<ProgrammingLanguage>()
-                .Where(l => l.Name.ToLower() == "python")
-                .Get();
-
-            var pythonLang = languages.Models?.FirstOrDefault();
-            if (pythonLang == null) return null;
+            var pythonLang = await GetPythonLanguageId();
+            if (string.IsNullOrEmpty(pythonLang))
+            {
+                _logger.LogWarning("❌ Язык Python не найден");
+                return null;
+            }
+            _logger.LogWarning("✅ Python language ID: {LanguageId}", pythonLang);
 
             var templateResponse = await _client
                 .From<CodeTemplate>()
-                .Where(ct => ct.LessonId == lessonId && ct.LanguageId == pythonLang.Id)
+                .Filter("lesson_id", Supabase.Postgrest.Constants.Operator.Equals, lessonId)
+                .Filter("language_id", Supabase.Postgrest.Constants.Operator.Equals, pythonLang)
                 .Get();
 
             var template = templateResponse.Models?.FirstOrDefault();
 
+            _logger.LogWarning("🔍 Поиск шаблона: LessonId={LessonId}, LanguageId={LangId}", lessonId, pythonLang);
+
+            if (template != null)
+            {
+                _logger.LogWarning("✅ Найден шаблон с ID: {TemplateId}", template.Id);
+                _logger.LogWarning("  TemplateCode: '{TemplateCode}'", template.TemplateCode);
+                _logger.LogWarning("  StarterCode: '{StarterCode}'", template.StarterCode);
+            }
+            else
+            {
+                _logger.LogWarning("❌ Шаблон не найден");
+
+                var allTemplates = await _client
+                    .From<CodeTemplate>()
+                    .Filter("lesson_id", Supabase.Postgrest.Constants.Operator.Equals, lessonId)
+                    .Get();
+
+                _logger.LogWarning("📊 Всего записей для урока: {Count}", allTemplates.Models?.Count ?? 0);
+            }
+
             var testsResponse = await _client
                 .From<Test>()
-                .Where(t => t.LessonId == lessonId && t.LanguageId == pythonLang.Id)
-                .Order(t => t.TestOrder, Ordering.Ascending)
+                .Filter("lesson_id", Supabase.Postgrest.Constants.Operator.Equals, lessonId)
+                .Filter("language_id", Supabase.Postgrest.Constants.Operator.Equals, pythonLang)
+                .Order("test_order", Supabase.Postgrest.Constants.Ordering.Ascending)
                 .Get();
 
-            var tests = testsResponse.Models?.Select(t => new
+            var tests = new List<object>();
+            if (testsResponse.Models != null && testsResponse.Models.Any())
             {
-                Input = t.Input,
-                ExpectedOutput = t.ExpectedOutput,
-                IsHidden = t.IsHidden
-            }).Cast<object>().ToList() ?? new List<object>();
+                _logger.LogWarning("✅ Найдено тестов: {Count}", testsResponse.Models.Count);
+                foreach (var t in testsResponse.Models)
+                {
+                    tests.Add(new
+                    {
+                        Input = t.Input,
+                        ExpectedOutput = t.ExpectedOutput,
+                        IsHidden = t.IsHidden
+                    });
+                    _logger.LogWarning("  Тест: Input='{Input}', Output='{Output}', Hidden={Hidden}",
+                        t.Input, t.ExpectedOutput, t.IsHidden);
+                }
+            }
+            else
+            {
+                _logger.LogWarning("❌ Тесты не найдены");
+            }
 
-            return new
+            var result = new
             {
-                TaskDescription = template?.TemplateCode ?? "",
-                StarterCode = template?.StarterCode ?? "def solution():\n    pass",
-                SolutionCode = template?.SolutionCode ?? "",
-                TestCases = tests
+                success = true,
+                code = template != null ? new
+                {
+                    template.Id,
+                    template.LessonId,
+                    template.LanguageId,
+                    template.TemplateCode,
+                    template.StarterCode,
+                    template.SolutionCode,
+                    TestCases = tests
+                } : null
             };
+
+            _logger.LogWarning("📦 Возвращаем результат: {Result}", System.Text.Json.JsonSerializer.Serialize(result));
+            _logger.LogWarning("==========================================");
+
+            return result;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "❌ Ошибка получения кода");
-            return null;
+            return new { success = false, error = ex.Message };
         }
     }
 
     public async Task<bool> UpdateLessonCodeAsync(
-        string teacherId,
-        string courseId,
-        string lessonId,
-        CodeContentDto code)
+    string teacherId,
+    string courseId,
+    string lessonId,
+    CodeContentDto code)
     {
         try
         {
+            _logger.LogWarning("========== СОХРАНЕНИЕ КОДА ==========");
+            _logger.LogWarning("LessonId: {LessonId}", lessonId);
+            _logger.LogWarning("CourseId: {CourseId}", courseId);
+            _logger.LogWarning("TeacherId: {TeacherId}", teacherId);
+
+            _logger.LogWarning("TaskDescription length: {Length}", code.TaskDescription?.Length ?? 0);
+            _logger.LogWarning("StarterCode length: {Length}", code.StarterCode?.Length ?? 0);
+            _logger.LogWarning("SolutionCode length: {Length}", code.SolutionCode?.Length ?? 0);
+            _logger.LogWarning("TestCases count: {Count}", code.TestCases?.Count ?? 0);
+
+            if (code.TestCases != null && code.TestCases.Any())
+            {
+                for (int i = 0; i < code.TestCases.Count; i++)
+                {
+                    var test = code.TestCases[i];
+                    _logger.LogWarning("  Тест {0}: Input='{1}', Output='{2}', Hidden={3}",
+                        i + 1, test.Input ?? "(пусто)", test.ExpectedOutput ?? "(пусто)", test.IsHidden);
+                }
+            }
+
             await _client.InitializeAsync();
 
             var course = await VerifyCourseOwnership(teacherId, courseId);
             if (course == null)
+            {
+                _logger.LogWarning("❌ Курс не найден или не принадлежит преподавателю");
                 return false;
+            }
+            _logger.LogWarning("✅ Курс проверен");
 
             var lesson = await VerifyLessonBelongsToCourse(lessonId, courseId);
             if (lesson == null)
-                return false;
-
-            var languages = await _client
-                .From<ProgrammingLanguage>()
-                .Where(l => l.Name.ToLower() == "python")
-                .Get();
-
-            var pythonLang = languages.Models?.FirstOrDefault();
-            if (pythonLang == null)
             {
-                _logger.LogError("Язык Python не найден в БД");
+                _logger.LogWarning("❌ Урок не найден или не принадлежит курсу");
                 return false;
             }
+            _logger.LogWarning("✅ Урок проверен");
+
+            var pythonLang = await GetPythonLanguageId();
+            if (string.IsNullOrEmpty(pythonLang))
+            {
+                _logger.LogError("❌ Язык Python не найден в БД");
+                return false;
+            }
+            _logger.LogWarning("✅ Python language ID: {LanguageId}", pythonLang);
 
             var existingTemplates = await _client
                 .From<CodeTemplate>()
-                .Where(ct => ct.LessonId == lessonId && ct.LanguageId == pythonLang.Id)
+                .Filter("lesson_id", Supabase.Postgrest.Constants.Operator.Equals, lessonId)
+                .Filter("language_id", Supabase.Postgrest.Constants.Operator.Equals, pythonLang)
                 .Get();
 
             var template = existingTemplates.Models?.FirstOrDefault();
 
             if (template == null)
             {
+                _logger.LogWarning("🆕 Создаем новый шаблон кода");
                 template = new CodeTemplate
                 {
                     Id = Guid.NewGuid().ToString(),
                     LessonId = lessonId,
-                    LanguageId = pythonLang.Id,
+                    LanguageId = pythonLang,
                     TemplateCode = code.TaskDescription,
                     StarterCode = code.StarterCode,
                     SolutionCode = code.SolutionCode,
                 };
                 await _client.From<CodeTemplate>().Insert(template);
+                _logger.LogWarning("✅ Шаблон создан, ID: {TemplateId}", template.Id);
             }
             else
             {
+                _logger.LogWarning("🔄 Обновляем существующий шаблон (ID: {TemplateId})", template.Id);
                 template.TemplateCode = code.TaskDescription;
                 template.StarterCode = code.StarterCode;
                 template.SolutionCode = code.SolutionCode;
                 await _client.From<CodeTemplate>().Update(template);
+                _logger.LogWarning("✅ Шаблон обновлен");
             }
 
             var existingTests = await _client
                 .From<Test>()
-                .Where(t => t.LessonId == lessonId && t.LanguageId == pythonLang.Id)
+                .Filter("lesson_id", Supabase.Postgrest.Constants.Operator.Equals, lessonId)
+                .Filter("language_id", Supabase.Postgrest.Constants.Operator.Equals, pythonLang)
                 .Get();
 
-            if (existingTests.Models != null)
+            if (existingTests.Models != null && existingTests.Models.Any())
             {
+                _logger.LogWarning("🗑️ Удаляем {Count} старых тестов", existingTests.Models.Count);
                 foreach (var test in existingTests.Models)
                 {
                     await _client.From<Test>().Delete(test);
                 }
             }
 
-            int order = 1;
-            foreach (var testCase in code.TestCases)
+            if (code.TestCases != null && code.TestCases.Any())
             {
-                var test = new Test
+                _logger.LogWarning("📝 СОХРАНЯЕМ {Count} ТЕСТОВ", code.TestCases.Count);
+
+                int order = 1;
+                foreach (var testCase in code.TestCases)
                 {
-                    Id = Guid.NewGuid().ToString(),
-                    LessonId = lessonId,
-                    LanguageId = pythonLang.Id,
-                    Input = testCase.Input,
-                    ExpectedOutput = testCase.ExpectedOutput,
-                    TestOrder = order++,
-                    IsHidden = testCase.IsHidden,
-                    TimeoutMs = testCase.TimeoutMs,
-                    Weight = testCase.Weight,
-                    CreatedAt = DateTime.UtcNow
-                };
-                await _client.From<Test>().Insert(test);
+                    _logger.LogWarning("  Тест {0}: Input='{1}', Output='{2}'",
+                        order, testCase.Input, testCase.ExpectedOutput);
+
+                    var test = new Test
+                    {
+                        Id = Guid.NewGuid().ToString(),
+                        LessonId = lessonId,
+                        LanguageId = pythonLang,
+                        Input = testCase.Input ?? "",
+                        ExpectedOutput = testCase.ExpectedOutput,
+                        TestOrder = order++,
+                        IsHidden = testCase.IsHidden,
+                        TimeoutMs = 5000,
+                        CreatedAt = DateTime.UtcNow
+                    };
+
+                    await _client.From<Test>().Insert(test);
+                    _logger.LogWarning("    ✅ Тест сохранен с ID: {TestId}", test.Id);
+                }
+
+                var checkTests = await _client
+                    .From<Test>()
+                    .Filter("lesson_id", Supabase.Postgrest.Constants.Operator.Equals, lessonId)
+                    .Get();
+
+                _logger.LogWarning("🔍 ПРОВЕРКА: в БД {Count} тестов", checkTests.Models?.Count ?? 0);
+            }
+            else
+            {
+                _logger.LogWarning("⚠️ Нет тестов для сохранения");
             }
 
-            _logger.LogInformation("✅ Кодовое задание для урока {LessonId} сохранено, добавлено тестов: {TestsCount}",
-                lessonId, code.TestCases.Count);
+            _logger.LogWarning("✅ Кодовое задание для урока {LessonId} успешно сохранено", lessonId);
+            _logger.LogWarning("==========================================");
+
             return true;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "❌ Ошибка сохранения кодового задания");
+            _logger.LogError("==========================================");
             return false;
         }
     }
@@ -511,13 +642,6 @@ public class TeacherCourseService
                 modules = new List<object>()
             };
 
-            string pythonLang = "";
-            var langResponse = await _client
-                .From<ProgrammingLanguage>()
-                .Filter("name", Supabase.Postgrest.Constants.Operator.Equals, "python")
-                .Get();
-            pythonLang = langResponse.Models?.FirstOrDefault()?.Id ?? "";
-
             foreach (var module in modules)
             {
                 var lessonsResponse = await _client
@@ -540,31 +664,18 @@ public class TeacherCourseService
 
                 foreach (var lesson in lessons)
                 {
-                    var quizResponse = await _client
-                        .From<QuizQuestion>()
-                        .Where(q => q.LessonId == lesson.Id)
-                        .Get();
-                    var hasQuiz = quizResponse.Models?.Any() ?? false;
-
-                    var hasCode = false;
-                    if (!string.IsNullOrEmpty(pythonLang))
-                    {
-                        var codeResponse = await _client
-                            .From<CodeTemplate>()
-                            .Where(ct => ct.LessonId == lesson.Id && ct.LanguageId == pythonLang)
-                            .Get();
-                        hasCode = codeResponse.Models?.Any() ?? false;
-                    }
-
                     moduleData.lessons.Add(new
                     {
                         lesson.Id,
                         lesson.Title,
                         lesson.LessonOrder,
                         hasTheory = true,
-                        hasQuiz,
-                        hasCode
+                        hasQuiz = lesson.HasQuiz, 
+                        hasCode = lesson.HasCode  
                     });
+
+                    _logger.LogInformation("    Урок {LessonTitle}: Quiz={HasQuiz}, Code={HasCode}",
+                        lesson.Title, lesson.HasQuiz, lesson.HasCode);
                 }
 
                 result.modules.Add(moduleData);

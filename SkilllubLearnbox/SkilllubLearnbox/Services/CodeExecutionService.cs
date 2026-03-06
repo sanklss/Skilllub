@@ -115,8 +115,7 @@ public class CodeExecutionService
                         Input = t.Input,
                         ExpectedOutput = t.ExpectedOutput,
                         ActualOutput = "✅",
-                        IsHidden = t.IsHidden,
-                        Weight = t.Weight
+                        IsHidden = t.IsHidden
                     }).ToList()
                 };
             }
@@ -167,7 +166,7 @@ public class CodeExecutionService
                     ActualOutput = isPassed ? "✅" : (i == currentTestIndex ? result?.Output ?? "" : "⏳"),
                     ExecutionTimeMs = i == currentTestIndex ? result?.ExecutionTimeMs ?? 0 : 0,
                     IsHidden = test.IsHidden,
-                    Weight = test.Weight
+                    Weight = test.Weight  
                 });
             }
 
@@ -294,7 +293,7 @@ public class CodeExecutionService
                 ExpectedOutput = t.ExpectedOutput,
                 IsHidden = t.IsHidden,
                 TimeoutMs = t.TimeoutMs,
-                Weight = t.Weight
+                Weight = t.Weight 
             }).ToList();
         }
         catch (Exception ex)
