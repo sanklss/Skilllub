@@ -508,4 +508,60 @@ async getUser(userId) {
     const response = await this.request(`/users/${userId}`);
     return response.json();
 }
+
+async getAllTeacherStudents() {
+    try {
+        const dashboard = await this.getTeacherDashboard();
+        
+        if (!dashboard.success || !dashboard.dashboard.courses) {
+            return { success: true, students: [] };
+        }
+        
+        const promises = dashboard.dashboard.courses.map(course => 
+            this.getCourseStudents(course.id)
+        );
+        
+        const results = await Promise.all(promises);
+        
+        const allStudents = [];
+        const seenUsers = new Set();
+        
+        results.forEach((result, index) => {
+            if (result.success && result.students) {
+                const courseId = dashboard.dashboard.courses[index].id;
+                const courseTitle = dashboard.dashboard.courses[index].title;
+                
+                result.students.forEach(student => {
+                    const studentWithCourse = {
+                        ...student,
+                        courses: [{
+                            courseId,
+                            courseTitle,
+                            progress: student.courseProgress
+                        }]
+                    };
+                    
+                    if (seenUsers.has(student.userId)) {
+                        const existing = allStudents.find(s => s.userId === student.userId);
+                        if (existing) {
+                            existing.courses.push({
+                                courseId,
+                                courseTitle,
+                                progress: student.courseProgress
+                            });
+                        }
+                    } else {
+                        seenUsers.add(student.userId);
+                        allStudents.push(studentWithCourse);
+                    }
+                });
+            }
+        });
+        
+        return { success: true, students: allStudents };
+    } catch (error) {
+        console.error('Ошибка загрузки всех студентов:', error);
+        return { success: false, error: error.message };
+    }
+}
 }
