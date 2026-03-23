@@ -27,4 +27,10 @@ public class Course : BaseModel
 
     [Column("created_by")]
     public string? CreatedBy { get; set; }
+
+    [Column("programming_language_id")]
+    public string? ProgrammingLanguageId { get; set; }
+
+    [Column("programming_language_name")]
+    public string? ProgrammingLanguageName { get; set; }
 }

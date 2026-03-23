@@ -23,7 +23,39 @@ public class TeacherCourseService
     {
         try
         {
+            _logger.LogWarning("========== НАЧАЛО СОЗДАНИЯ КУРСА ==========");
+            _logger.LogWarning("TeacherId: {TeacherId}", teacherId);
+            _logger.LogWarning("Title: {Title}", dto.Title);
+            _logger.LogWarning("ProgrammingLanguageId: {LanguageId}", dto.ProgrammingLanguageId);
+
             await _client.InitializeAsync();
+            _logger.LogWarning("✅ Supabase инициализирован");
+
+            _logger.LogWarning("🔍 Поиск языка с ID: {LanguageId}", dto.ProgrammingLanguageId);
+
+            var languageResponse = await _client
+                .From<ProgrammingLanguage>()
+                .Where(l => l.Id == dto.ProgrammingLanguageId && l.Enabled == true)
+                .Get();
+
+            var language = languageResponse.Models?.FirstOrDefault();
+
+            if (language == null)
+            {
+                _logger.LogError("❌ Язык с ID {LanguageId} не найден в БД!", dto.ProgrammingLanguageId);
+
+                var allLanguages = await _client.From<ProgrammingLanguage>().Get();
+                _logger.LogWarning("📋 Доступные языки в БД:");
+                foreach (var lang in allLanguages.Models ?? new List<ProgrammingLanguage>())
+                {
+                    _logger.LogWarning("   - ID: {Id}, Name: {Name}, Enabled: {Enabled}",
+                        lang.Id, lang.Name, lang.Enabled);
+                }
+
+                throw new Exception($"Выбранный язык программирования (ID: {dto.ProgrammingLanguageId}) не найден");
+            }
+
+            _logger.LogWarning("✅ Язык найден: {LanguageName} (ID: {LanguageId})", language.Name, language.Id);
 
             var course = new Course
             {
@@ -33,11 +65,24 @@ public class TeacherCourseService
                 DifficultyLevel = dto.DifficultyLevel,
                 IsPublished = false,
                 CreatedBy = teacherId,
-                CreatedAt = DateTime.UtcNow
+                CreatedAt = DateTime.UtcNow,
+                ProgrammingLanguageId = dto.ProgrammingLanguageId,
+                ProgrammingLanguageName = language.Name
             };
 
-            await _client.From<Course>().Insert(course);
-            _logger.LogInformation("✅ Создан курс-черновик: {Title} (ID: {CourseId})", course.Title, course.Id);
+            _logger.LogWarning("📦 Вставка курса в БД: ID={CourseId}, Title={Title}, LangId={LangId}, LangName={LangName}",
+                course.Id, course.Title, course.ProgrammingLanguageId, course.ProgrammingLanguageName);
+
+            var insertResult = await _client.From<Course>().Insert(course);
+
+            if (insertResult.Models == null || !insertResult.Models.Any())
+            {
+                _logger.LogError("❌ Не удалось вставить курс в БД!");
+                throw new Exception("Ошибка при вставке курса в базу данных");
+            }
+
+            _logger.LogInformation("✅ Создан курс-черновик: {Title} с языком {Language}",
+                course.Title, language.Name);
 
             int totalLessons = 0;
 
@@ -92,13 +137,10 @@ public class TeacherCourseService
                     await _client.From<Lesson>().Insert(lesson);
                     _logger.LogInformation("    📝 Создан урок: {LessonTitle}", lesson.Title);
                     totalLessons++;
-
-                    if (lessonTemplate != null)
-                    {
-                        await SaveLessonMetadataAsync(lesson.Id, lessonTemplate);
-                    }
                 }
             }
+
+            _logger.LogWarning("========== КУРС УСПЕШНО СОЗДАН ==========");
 
             return new CourseTemplateResponseDto
             {
@@ -107,12 +149,13 @@ public class TeacherCourseService
                 ModulesCount = dto.ModulesCount,
                 LessonsCount = totalLessons,
                 IsDraft = true,
-                Message = $"Создан черновик курса с {dto.ModulesCount} модулями и {totalLessons} уроками"
+                Message = $"Создан черновик курса с {dto.ModulesCount} модулями и {totalLessons} уроками на языке {language.Name}"
             };
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "❌ Ошибка создания шаблона курса");
+            _logger.LogError("StackTrace: {StackTrace}", ex.StackTrace);
             throw;
         }
     }
@@ -436,18 +479,18 @@ public class TeacherCourseService
             }
             _logger.LogWarning("✅ Урок проверен");
 
-            var pythonLang = await GetPythonLanguageId();
-            if (string.IsNullOrEmpty(pythonLang))
+            var languageId = course.ProgrammingLanguageId;
+            if (string.IsNullOrEmpty(languageId))
             {
-                _logger.LogError("❌ Язык Python не найден в БД");
+                _logger.LogError("❌ Язык курса не указан!");
                 return false;
             }
-            _logger.LogWarning("✅ Python language ID: {LanguageId}", pythonLang);
+            _logger.LogWarning("✅ Language ID из курса: {LanguageId}", languageId);
 
             var existingTemplates = await _client
                 .From<CodeTemplate>()
                 .Filter("lesson_id", Supabase.Postgrest.Constants.Operator.Equals, lessonId)
-                .Filter("language_id", Supabase.Postgrest.Constants.Operator.Equals, pythonLang)
+                .Filter("language_id", Supabase.Postgrest.Constants.Operator.Equals, languageId)
                 .Get();
 
             var template = existingTemplates.Models?.FirstOrDefault();
@@ -459,7 +502,7 @@ public class TeacherCourseService
                 {
                     Id = Guid.NewGuid().ToString(),
                     LessonId = lessonId,
-                    LanguageId = pythonLang,
+                    LanguageId = languageId,
                     TemplateCode = code.TaskDescription,
                     StarterCode = code.StarterCode,
                     SolutionCode = code.SolutionCode,
@@ -480,7 +523,7 @@ public class TeacherCourseService
             var existingTests = await _client
                 .From<Test>()
                 .Filter("lesson_id", Supabase.Postgrest.Constants.Operator.Equals, lessonId)
-                .Filter("language_id", Supabase.Postgrest.Constants.Operator.Equals, pythonLang)
+                .Filter("language_id", Supabase.Postgrest.Constants.Operator.Equals, languageId)
                 .Get();
 
             if (existingTests.Models != null && existingTests.Models.Any())
@@ -506,7 +549,7 @@ public class TeacherCourseService
                     {
                         Id = Guid.NewGuid().ToString(),
                         LessonId = lessonId,
-                        LanguageId = pythonLang,
+                        LanguageId = languageId,
                         Input = testCase.Input ?? "",
                         ExpectedOutput = testCase.ExpectedOutput,
                         TestOrder = order++,
@@ -637,7 +680,9 @@ public class TeacherCourseService
                     course.Title,
                     course.Description,
                     course.DifficultyLevel,
-                    course.IsPublished
+                    course.IsPublished,
+                    course.ProgrammingLanguageId,
+                    course.ProgrammingLanguageName
                 },
                 modules = new List<object>()
             };

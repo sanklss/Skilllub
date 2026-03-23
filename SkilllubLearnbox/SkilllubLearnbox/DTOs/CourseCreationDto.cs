@@ -7,6 +7,7 @@ public class CreateCourseStructureDto
     public string DifficultyLevel { get; set; } = "beginner";
     public int ModulesCount { get; set; } = 1;
     public List<ModuleTemplateDto> Modules { get; set; } = new();
+    public string ProgrammingLanguageId { get; set; } = "11111111-1111-1111-1111-111111111111";
 }
 
 public class ModuleTemplateDto

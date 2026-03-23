@@ -42,7 +42,10 @@ public class CourseService
                 Title = c.Title,
                 Description = c.Description,
                 DifficultyLevel = c.DifficultyLevel,
-                IsPublished = c.IsPublished
+                IsPublished = c.IsPublished,
+                CreatedBy = c.CreatedBy,
+                ProgrammingLanguageId = c.ProgrammingLanguageId,
+                ProgrammingLanguageName = c.ProgrammingLanguageName
             }).ToList();
 
             return courseDtos;
@@ -58,7 +61,7 @@ public class CourseService
     {
         try
         {
-            _logger.LogInformation("Загрузка курса {CourseId} из базы данных", courseId);
+            _logger.LogInformation("🔍 Загрузка курса {CourseId} из базы данных", courseId);
 
             var response = await _client
                 .From<Course>()
@@ -70,9 +73,15 @@ public class CourseService
 
             if (course == null)
             {
-                _logger.LogWarning("Курс {CourseId} не найден или не опубликован", courseId);
+                _logger.LogWarning("❌ Курс {CourseId} не найден или не опубликован", courseId);
                 return null;
             }
+
+            _logger.LogInformation("✅ Курс найден в БД: Title={Title}", course.Title);
+            _logger.LogInformation("📊 Raw course data:");
+            _logger.LogInformation("   - ProgrammingLanguageId: {Value}",
+                course.ProgrammingLanguageId);
+            _logger.LogInformation("   - ProgrammingLanguageName: {Value}", course.ProgrammingLanguageName);
 
             var courseDto = new CourseDto
             {
@@ -81,14 +90,19 @@ public class CourseService
                 Description = course.Description,
                 DifficultyLevel = course.DifficultyLevel,
                 IsPublished = course.IsPublished,
-                CreatedBy = course.CreatedBy  
+                CreatedBy = course.CreatedBy,
+                ProgrammingLanguageId = course.ProgrammingLanguageId,
+                ProgrammingLanguageName = course.ProgrammingLanguageName
             };
+
+            _logger.LogInformation("📤 Возвращаем DTO: LangId={LangId}, LangName={LangName}",
+                courseDto.ProgrammingLanguageId, courseDto.ProgrammingLanguageName);
 
             return courseDto;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Ошибка при получении курса {CourseId}", courseId);
+            _logger.LogError(ex, "❌ Ошибка при получении курса {CourseId}", courseId);
             return null;
         }
     }

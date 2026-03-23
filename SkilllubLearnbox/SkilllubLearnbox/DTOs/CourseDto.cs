@@ -7,5 +7,7 @@ public class CourseDto
     public string Description { get; set; } = "";
     public string DifficultyLevel { get; set; } = "";
     public bool IsPublished { get; set; }
-    public string? CreatedBy { get; set; } 
+    public string? CreatedBy { get; set; }
+    public string? ProgrammingLanguageId { get; set; }
+    public string? ProgrammingLanguageName { get; set; }
 }

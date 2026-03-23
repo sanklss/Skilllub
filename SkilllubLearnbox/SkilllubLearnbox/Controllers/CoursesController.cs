@@ -53,7 +53,9 @@ public class CoursesController : ControllerBase
                 Description = course.Description,
                 DifficultyLevel = course.DifficultyLevel,
                 IsPublished = course.IsPublished,
-                CreatedBy = course.CreatedBy 
+                CreatedBy = course.CreatedBy,
+                ProgrammingLanguageId = course.ProgrammingLanguageId,
+                ProgrammingLanguageName = course.ProgrammingLanguageName
             };
 
             return Ok(new { success = true, course = courseDto });

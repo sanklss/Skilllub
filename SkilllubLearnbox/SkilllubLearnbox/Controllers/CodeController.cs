@@ -58,6 +58,7 @@ public class CodeController : ControllerBase
         }
     }
 
+
     [HttpPost("lessons/{lessonId}/run-tests")]
     public async Task<IActionResult> RunLessonTests(string lessonId, [FromBody] CodeSubmitDto dto)
     {
@@ -70,9 +71,6 @@ public class CodeController : ControllerBase
             _logger.LogWarning("Code length: {CodeLength}", dto.Code?.Length ?? 0);
             _logger.LogWarning("Language: {Language}", dto.Language);
             _logger.LogWarning("Stdin (как строка): '{Stdin}'", dto.Stdin);
-            _logger.LogWarning("Stdin длина: {Length}", dto.Stdin?.Length ?? 0);
-            _logger.LogWarning("Stdin байты: {Bytes}",
-                string.Join(",", System.Text.Encoding.UTF8.GetBytes(dto.Stdin ?? "")));
             _logger.LogWarning("======================================");
 
             var lesson = await _courseService.GetLessonByIdAsync(lessonId, userId);
@@ -82,11 +80,10 @@ public class CodeController : ControllerBase
             }
 
             var result = await _codeExecutionService.RunCodeTestsAsync(
-                lessonId,
-                dto.Code,
-                dto.Language,
-                userId,
-                dto.Stdin ?? "" 
+                lessonId,        
+                dto.Code,       
+                userId,         
+                dto.Stdin ?? ""  
             );
 
             var allTestsPassed = result?.PassedTests == result?.TotalTests && result?.TotalTests > 0;

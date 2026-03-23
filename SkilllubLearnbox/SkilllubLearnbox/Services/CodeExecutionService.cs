@@ -1,9 +1,11 @@
-﻿using System.Text;
+﻿// Services/CodeExecutionService.cs
+using System.Text;
 using System.Text.Json;
 using SkilllubLearnbox.DTOs;
 using SkilllubLearnbox.Models;
 using Supabase;
 using Supabase.Postgrest;
+using static Supabase.Postgrest.Constants;
 
 namespace SkilllubLearnbox.Services;
 
@@ -14,15 +16,17 @@ public class CodeExecutionService
     private readonly Supabase.Client _supabaseClient;
     private readonly ProgressService _progressService;
     private readonly string _compilerUrl;
-    private readonly Supabase.Client _client; 
-
+    private readonly Supabase.Client _client;
+    private readonly CourseService _courseService;
 
     public CodeExecutionService(
         ILogger<CodeExecutionService> logger,
         IHttpClientFactory httpClientFactory,
         Supabase.Client supabaseClient,
         ProgressService progressService,
-        IConfiguration configuration, Supabase.Client client)
+        IConfiguration configuration,
+        Supabase.Client client,
+        CourseService courseService)
     {
         _logger = logger;
         _client = client;
@@ -30,40 +34,75 @@ public class CodeExecutionService
         _supabaseClient = supabaseClient;
         _progressService = progressService;
         _compilerUrl = configuration["CompilerService:Url"] ?? "http://localhost:8000";
-
+        _courseService = courseService;
     }
-    
 
     public async Task<CodeExecutionResultDto> ExecuteCodeAsync(CodeExecuteDto dto)
     {
         try
         {
             _logger.LogInformation("Executing code for lesson {LessonId}", dto.LessonId);
+            _logger.LogInformation("Language: {Language}, Stdin: '{Stdin}'", dto.Language, dto.Stdin);
+
+            string codeToExecute = dto.Code;
+
+            if (dto.Language?.ToLower() == "javascript" || dto.Language?.ToLower() == "js")
+            {
+                bool hasPrompt = codeToExecute.Contains("prompt(");
+                bool hasAlert = codeToExecute.Contains("alert(");
+
+                if (hasPrompt || hasAlert)
+                {
+                    _logger.LogInformation("🔄 Преобразуем JS код с prompt/alert для Node.js");
+
+                    string escapedCode = codeToExecute
+                        .Replace("\\", "\\\\")
+                        .Replace("`", "\\`")
+                        .Replace("${", "\\${");
+
+                    codeToExecute = @"
+const fs = require('fs');
+const input = fs.readFileSync(0, 'utf-8').trim().split('\n');
+let inputIndex = 0;
+
+// Эмулируем prompt для Node.js
+function prompt(text) {
+    return input[inputIndex++] || '';
+}
+
+// Эмулируем alert для Node.js
+function alert(msg) {
+    console.log(msg);
+}
+
+// Выполняем оригинальный код
+" + escapedCode;
+
+                    _logger.LogInformation("✅ Код преобразован");
+                }
+            }
 
             var request = new
             {
-                code = dto.Code,
+                code = codeToExecute,
                 language = dto.Language,
                 stdin = dto.Stdin ?? "",
                 time_limit = dto.TimeLimit ?? 5,
                 memory_limit_mb = 256
             };
-            _logger.LogWarning("🔥 Sending to Docker - stdin: '{Stdin}'", dto.Stdin);
-            _logger.LogWarning("🔥 stdin length: {Length}", dto.Stdin?.Length ?? 0);
+
             var response = await _httpClient.PostAsJsonAsync($"{_compilerUrl}/execute", request);
 
             var responseBody = await response.Content.ReadAsStringAsync();
-            Console.WriteLine("\n========== ОТВЕТ ОТ КОМПИЛЯТОРА (RAW) ==========");
-            Console.WriteLine(responseBody);
-            Console.WriteLine("================================================\n");
+            _logger.LogInformation("Compiler response: {Response}", responseBody);
+
             if (!response.IsSuccessStatusCode)
             {
-                var errorContent = await response.Content.ReadAsStringAsync();
-                _logger.LogError("Compiler error: {Error}", errorContent);
+                _logger.LogError("Compiler error: {Error}", responseBody);
                 return new CodeExecutionResultDto
                 {
                     Success = false,
-                    Error = "Ошибка выполнения кода"
+                    Error = $"Ошибка компилятора: {responseBody}"
                 };
             }
 
@@ -74,7 +113,11 @@ public class CodeExecutionService
 
             await SaveSubmissionAsync(dto, result);
 
-            return result ?? new CodeExecutionResultDto { Success = false, Error = "Пустой ответ от компилятора" };
+            return result ?? new CodeExecutionResultDto
+            {
+                Success = false,
+                Error = "Пустой ответ от компилятора"
+            };
         }
         catch (Exception ex)
         {
@@ -82,21 +125,47 @@ public class CodeExecutionService
             return new CodeExecutionResultDto
             {
                 Success = false,
-                Error = "Ошибка сервера компиляции"
+                Error = $"Ошибка сервера компиляции: {ex.Message}"
             };
         }
     }
 
     public async Task<CodeExecutionResultDto> RunCodeTestsAsync(
-    string lessonId,
-    string code,
-    string language,
-    string userId,
-    string stdin = "")  
+        string lessonId,
+        string code,
+        string userId,
+        string stdin = "")
     {
         try
         {
             _logger.LogInformation("Running tests for lesson {LessonId}, user {UserId}", lessonId, userId);
+
+            var lesson = await _courseService.GetLessonByIdAsync(lessonId, userId);
+            if (lesson == null)
+            {
+                return new CodeExecutionResultDto { Success = false, Error = "Урок не найден" };
+            }
+
+            var moduleResponse = await _client
+                .From<Module>()
+                .Where(m => m.Id == lesson.ModuleId)
+                .Get();
+
+            var module = moduleResponse.Models?.FirstOrDefault();
+            if (module == null)
+            {
+                return new CodeExecutionResultDto { Success = false, Error = "Модуль не найден" };
+            }
+
+            var course = await _courseService.GetCourseByIdAsync(module.CourseId);
+            if (course == null)
+            {
+                return new CodeExecutionResultDto { Success = false, Error = "Курс не найден" };
+            }
+
+            string language = course.ProgrammingLanguageName ?? "python";
+            _logger.LogInformation("📚 Используем язык курса: {Language} для урока {LessonId}",
+                language, lessonId);
 
             var tests = await GetTestsForLessonAsync(lessonId, language);
             var passedTestIds = await GetPassedTestIdsAsync(userId, lessonId);
@@ -146,7 +215,7 @@ public class CodeExecutionService
             bool inputWasUsed = true;
             string? resultWithoutInput = null;
 
-            if (!string.IsNullOrEmpty(nextTest.Input))  
+            if (!string.IsNullOrEmpty(nextTest.Input))
             {
                 _logger.LogInformation("🔍 Проверка использования входных данных из БД...");
 
@@ -301,6 +370,7 @@ public class CodeExecutionService
             };
         }
     }
+
     private async Task<HashSet<string>> GetPassedTestIdsAsync(string userId, string lessonId)
     {
         try
@@ -343,13 +413,14 @@ public class CodeExecutionService
             return new HashSet<string>();
         }
     }
+
     private async Task<List<TestDto>> GetTestsForLessonAsync(string lessonId, string languageName)
     {
         try
         {
             await _client.InitializeAsync();
 
-            Console.WriteLine($"🔍 Поиск тестов для урока {lessonId}");
+            Console.WriteLine($"🔍 Поиск тестов для урока {lessonId}, язык: {languageName}");
 
             var allLanguages = await _client
                 .From<ProgrammingLanguage>()
@@ -360,8 +431,11 @@ public class CodeExecutionService
 
             if (language == null)
             {
-                Console.WriteLine("❌ Язык не найден");
-                return new List<TestDto>();
+                Console.WriteLine($"❌ Язык {languageName} не найден, используем python");
+                language = allLanguages.Models?
+                    .FirstOrDefault(l => l.Name.ToLower() == "python");
+
+                if (language == null) return new List<TestDto>();
             }
 
             Console.WriteLine($"✅ Язык найден: {language.Name} (ID: {language.Id})");
@@ -372,14 +446,10 @@ public class CodeExecutionService
 
             var tests = allTests.Models?
                 .Where(t => t.LessonId == lessonId && t.LanguageId == language.Id)
+                .OrderBy(t => t.TestOrder)
                 .ToList() ?? new List<Test>();
 
             Console.WriteLine($"📊 Найдено тестов: {tests.Count}");
-
-            if (tests.Count > 0)
-            {
-                Console.WriteLine($"✅ Первый тест: ожидается '{tests[0].ExpectedOutput}'");
-            }
 
             return tests.Select(t => new TestDto
             {
@@ -388,7 +458,7 @@ public class CodeExecutionService
                 ExpectedOutput = t.ExpectedOutput,
                 IsHidden = t.IsHidden,
                 TimeoutMs = t.TimeoutMs,
-                Weight = t.Weight 
+                Weight = t.Weight
             }).ToList();
         }
         catch (Exception ex)
@@ -449,12 +519,12 @@ public class CodeExecutionService
     }
 
     private async Task<Submission> SaveSubmissionWithTestsAsync(
-    string userId,
-    string lessonId,
-    string language,
-    string code,
-    CodeExecutionResultDto result,
-    List<TestDto> tests)
+        string userId,
+        string lessonId,
+        string language,
+        string code,
+        CodeExecutionResultDto result,
+        List<TestDto> tests)
     {
         try
         {

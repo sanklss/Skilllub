@@ -2,6 +2,8 @@
 from pydantic import BaseModel
 import subprocess
 import time
+import sys
+import io
 
 app = FastAPI(title="Code Executor")
 
@@ -23,47 +25,66 @@ async def execute_code(request: CodeRequest):
     
     try:
         if request.language == "python":
-            result = subprocess.run(
+            process = subprocess.Popen(
                 ["python", "-c", request.code],
-                input=request.stdin, 
-                capture_output=True,
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
                 text=True,
                 timeout=request.timeout
             )
             
-            return CodeResponse(
-                output=result.stdout,
-                error=result.stderr,
-                execution_time=(time.time() - start) * 1000,
-                success=result.returncode == 0
-            )
+            try:
+                stdout, stderr = process.communicate(input=request.stdin, timeout=request.timeout)
+                
+                return CodeResponse(
+                    output=stdout,
+                    error=stderr,
+                    execution_time=(time.time() - start) * 1000,
+                    success=process.returncode == 0
+                )
+            except subprocess.TimeoutExpired:
+                process.kill()
+                stdout, stderr = process.communicate()
+                return CodeResponse(
+                    output=stdout,
+                    error="Timeout error: " + stderr,
+                    execution_time=request.timeout * 1000,
+                    success=False
+                )
             
         elif request.language == "javascript" or request.language == "js":
-            result = subprocess.run(
+            process = subprocess.Popen(
                 ["node", "-e", request.code],
-                input=request.stdin,
-                capture_output=True,
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
                 text=True,
                 timeout=request.timeout
             )
             
-            return CodeResponse(
-                output=result.stdout,
-                error=result.stderr,
-                execution_time=(time.time() - start) * 1000,
-                success=result.returncode == 0
-            )
+            try:
+                stdout, stderr = process.communicate(input=request.stdin, timeout=request.timeout)
+                
+                return CodeResponse(
+                    output=stdout,
+                    error=stderr,
+                    execution_time=(time.time() - start) * 1000,
+                    success=process.returncode == 0
+                )
+            except subprocess.TimeoutExpired:
+                process.kill()
+                stdout, stderr = process.communicate()
+                return CodeResponse(
+                    output=stdout,
+                    error="Timeout error: " + stderr,
+                    execution_time=request.timeout * 1000,
+                    success=False
+                )
             
         else:
             raise HTTPException(400, f"Язык {request.language} не поддерживается")
             
-    except subprocess.TimeoutExpired:
-        return CodeResponse(
-            output="",
-            error=f"Timeout ({request.timeout} sec)",
-            execution_time=request.timeout * 1000,
-            success=False
-        )
     except Exception as e:
         return CodeResponse(
             output="",
