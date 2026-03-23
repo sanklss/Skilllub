@@ -10,6 +10,7 @@ export class TeacherCourseCreator {
         this.baseUrl = 'https://localhost:7000';
         this.cachedTestCases = [];
         this.cachedQuizData = null;
+        this.languages = []; 
     }
 
     initialize() {
@@ -149,8 +150,59 @@ export class TeacherCourseCreator {
         });
     }
 
-    showCourseCreationModal() {
+    async loadLanguages() {
+        try {
+            console.log('📚 Загрузка языков из БД...');
+            const result = await this.api.getProgrammingLanguages();
+            if (result.success) {
+                this.languages = result.languages;
+                console.log('✅ Языки загружены:', this.languages);
+            } else {
+                console.error('❌ Ошибка загрузки языков:', result.error);
+                this.languages = [
+                    { id: '11111111-1111-1111-1111-111111111111', name: 'python', monacoLanguageId: 'python' }
+                ];
+            }
+        } catch (error) {
+            console.error('❌ Ошибка загрузки языков:', error);
+            this.languages = [
+                { id: '11111111-1111-1111-1111-111111111111', name: 'python', monacoLanguageId: 'python' }
+            ];
+        }
+    }
+
+    createCourseLanguageSelector() {
+        const container = document.createElement('div');
+        container.className = 'form-group';
+        container.style.marginBottom = '20px';
+        
+        const options = this.languages.map(lang => 
+            `<option value="${lang.id}" data-monaco="${lang.monacoLanguageId}">
+                ${lang.name}
+            </option>`
+        ).join('');
+        
+        container.innerHTML = `
+            <label style="display: block; margin-bottom: 5px; font-weight: 500;">
+                Язык программирования курса *
+            </label>
+            <select id="course-language" class="filter-select" style="width: 100%; padding: 8px;" required>
+                <option value="">Выберите язык</option>
+                ${options}
+            </select>
+            <p class="muted" style="font-size: 12px; margin-top: 5px;">
+                Все кодовые задания в курсе будут на этом языке
+            </p>
+        `;
+        
+        return container;
+    }
+
+    async showCourseCreationModal() {
         console.log('📝 showCourseCreationModal() вызван');
+        
+        await this.loadLanguages();
+        
         const modal = document.getElementById('modal-create-course');
         if (!modal) {
             console.error('❌ Модальное окно не найдено!');
@@ -168,6 +220,16 @@ export class TeacherCourseCreator {
         if (difficultySelect) difficultySelect.value = 'beginner';
         
         this.createModulesContainer(modal);
+        
+        const modalContent = modal.querySelector('.modal-content');
+        const difficultyGroup = document.getElementById('course-difficulty')?.closest('.form-group');
+        
+        if (modalContent && difficultyGroup) {
+            if (!document.getElementById('course-language')) {
+                const languageSelector = this.createCourseLanguageSelector();
+                difficultyGroup.insertAdjacentElement('afterend', languageSelector);
+            }
+        }
         
         modal.classList.remove('hidden');
         console.log('✅ модальное окно открыто');
@@ -399,8 +461,15 @@ export class TeacherCourseCreator {
 
     async saveCourseTemplate() {
         const title = document.getElementById('course-title')?.value;
+        const languageId = document.getElementById('course-language')?.value;
+        
         if (!title) {
             this.uiManager.showToast('Введите название курса', 'warning');
+            return;
+        }
+        
+        if (!languageId) {
+            this.uiManager.showToast('Выберите язык программирования', 'warning');
             return;
         }
 
@@ -450,13 +519,13 @@ export class TeacherCourseCreator {
             description: document.getElementById('course-description')?.value || '',
             difficultyLevel: document.getElementById('course-difficulty')?.value || 'beginner',
             modulesCount: modules.length,
-            modules: modules
+            modules: modules,
+            programmingLanguageId: languageId
         };
 
         try {
             this.uiManager.showButtonLoading('save-course-template', true);
             
-            const token = localStorage.getItem('authToken');
             const response = await fetch(`${this.baseUrl}/api/teacher-course/create-template`, {
                 method: 'POST',
                 headers: {
@@ -614,7 +683,6 @@ export class TeacherCourseCreator {
     async openLessonEditor(courseId, lessonId, hasQuiz, hasCode) {
         console.log('📝 Открытие редактора урока:', { courseId, lessonId, hasQuiz, hasCode });
         
-        // Очищаем кэш при открытии нового урока
         this.cachedTestCases = [];
         this.cachedQuizData = null;
         
@@ -859,86 +927,86 @@ export class TeacherCourseCreator {
     }
 
     async saveLessonContent() {
-    console.log('💾 Сохранение урока');
-    
-    const courseId = document.getElementById('lesson-editor-course-id').value;
-    const lessonId = document.getElementById('lesson-editor-lesson-id').value;
-    const token = localStorage.getItem('authToken');
-    
-    const theoryContent = document.getElementById('theory-content').value;
-    if (theoryContent) {
-        await fetch(`${this.baseUrl}/api/teacher-course/${courseId}/lesson/${lessonId}/theory`, {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify({ content: theoryContent })
-        });
-    }
-    
-    const quizTabBtn = document.getElementById('tab-quiz-btn');
-    if (quizTabBtn && quizTabBtn.style.display !== 'none') {
-        const quizData = {
-            questionText: document.getElementById('quiz-question').value,
-            option1: document.getElementById('quiz-option1').value,
-            option2: document.getElementById('quiz-option2').value,
-            option3: document.getElementById('quiz-option3').value,
-            option4: document.getElementById('quiz-option4').value,
-            correctOption: parseInt(document.getElementById('quiz-correct').value),
-            explanation: document.getElementById('quiz-explanation').value
-        };
+        console.log('💾 Сохранение урока');
         
-        await fetch(`${this.baseUrl}/api/teacher-course/${courseId}/lesson/${lessonId}/quiz`, {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify(quizData)
-        });
-    }
-    
-    const codeTabBtn = document.getElementById('tab-code-btn');
-    if (codeTabBtn && codeTabBtn.style.display !== 'none') {
-        const testCases = [];
-        document.querySelectorAll('.test-case').forEach(test => {
-            const input = test.querySelector('.test-input')?.value || '';
-            const output = test.querySelector('.test-output')?.value || '';
-            const isHidden = test.querySelector('.test-hidden')?.checked || false;
+        const courseId = document.getElementById('lesson-editor-course-id').value;
+        const lessonId = document.getElementById('lesson-editor-lesson-id').value;
+        const token = localStorage.getItem('authToken');
+        
+        const theoryContent = document.getElementById('theory-content').value;
+        if (theoryContent) {
+            await fetch(`${this.baseUrl}/api/teacher-course/${courseId}/lesson/${lessonId}/theory`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ content: theoryContent })
+            });
+        }
+        
+        const quizTabBtn = document.getElementById('tab-quiz-btn');
+        if (quizTabBtn && quizTabBtn.style.display !== 'none') {
+            const quizData = {
+                questionText: document.getElementById('quiz-question').value,
+                option1: document.getElementById('quiz-option1').value,
+                option2: document.getElementById('quiz-option2').value,
+                option3: document.getElementById('quiz-option3').value,
+                option4: document.getElementById('quiz-option4').value,
+                correctOption: parseInt(document.getElementById('quiz-correct').value),
+                explanation: document.getElementById('quiz-explanation').value
+            };
             
-            if (output.trim() !== '') {
-                testCases.push({
-                    input: input,
-                    expectedOutput: output,
-                    isHidden: isHidden
-                });
-                console.log(`📝 Добавлен тест: input="${input}", output="${output}"`);
-            }
-        });
+            await fetch(`${this.baseUrl}/api/teacher-course/${courseId}/lesson/${lessonId}/quiz`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify(quizData)
+            });
+        }
         
-        console.log(`📊 Всего тестов для отправки: ${testCases.length}`);
+        const codeTabBtn = document.getElementById('tab-code-btn');
+        if (codeTabBtn && codeTabBtn.style.display !== 'none') {
+            const testCases = [];
+            document.querySelectorAll('.test-case').forEach(test => {
+                const input = test.querySelector('.test-input')?.value || '';
+                const output = test.querySelector('.test-output')?.value || '';
+                const isHidden = test.querySelector('.test-hidden')?.checked || false;
+                
+                if (output.trim() !== '') {
+                    testCases.push({
+                        input: input,
+                        expectedOutput: output,
+                        isHidden: isHidden
+                    });
+                    console.log(`📝 Добавлен тест: input="${input}", output="${output}"`);
+                }
+            });
+            
+            console.log(`📊 Всего тестов для отправки: ${testCases.length}`);
+            
+            const codeData = {
+                taskDescription: document.getElementById('code-description').value || '',
+                starterCode: document.getElementById('code-starter').value || '',
+                solutionCode: document.getElementById('code-solution').value || '',
+                testCases: testCases
+            };
+            
+            await fetch(`${this.baseUrl}/api/teacher-course/${courseId}/lesson/${lessonId}/code`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify(codeData)
+            });
+        }
         
-        const codeData = {
-            taskDescription: document.getElementById('code-description').value || '',
-            starterCode: document.getElementById('code-starter').value || '',
-            solutionCode: document.getElementById('code-solution').value || '',
-            testCases: testCases
-        };
-        
-        await fetch(`${this.baseUrl}/api/teacher-course/${courseId}/lesson/${lessonId}/code`, {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify(codeData)
-        });
+        this.uiManager.showToast('Урок сохранен', 'success');
+        document.getElementById('modal-lesson-editor').classList.add('hidden');
     }
-    
-    this.uiManager.showToast('Урок сохранен', 'success');
-    document.getElementById('modal-lesson-editor').classList.add('hidden');
-}
 
     async publishCourse() {
         console.log('📢 Кнопка опубликовать нажата');

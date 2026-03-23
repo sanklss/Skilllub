@@ -160,10 +160,31 @@ export class ApiService {
         return response.json();
     }
 
-    async getCourse(courseId) {
-        const response = await this.request(`/courses/${courseId}`);
-        return response.json();
+async getCourse(courseId) {
+    const response = await this.request(`/courses/${courseId}`);
+    const data = await response.json();
+    
+    console.log('🔥🔥🔥 СЫРОЙ ОТВЕТ ОТ СЕРВЕРА:', JSON.stringify(data, null, 2));
+    
+    if (data.success && data.course) {
+        console.log('🔥🔥🔥 ДАННЫЕ КУРСА ИЗ СЕРВЕРА:', JSON.stringify(data.course, null, 2));
+        
+        return {
+            success: true,
+            course: {
+                id: data.course.id,
+                title: data.course.title,
+                description: data.course.description,
+                difficultyLevel: data.course.difficultyLevel,
+                isPublished: data.course.isPublished,
+                createdBy: data.course.createdBy,
+                programmingLanguageId: data.course.programmingLanguageId,
+                programmingLanguageName: data.course.programmingLanguageName
+            }
+        };
     }
+    return data;
+}
 
     async getCourseModules(courseId, userId = null) {
         const url = userId 
@@ -354,7 +375,7 @@ export class ApiService {
         });
         return response.json();
     }
-
+    
     async checkLessonProgress(lessonId) {
     try {
         const response = await this.request(`/progress/lesson/${lessonId}/status`);
@@ -379,24 +400,36 @@ async runCode(code, language, input = '') {
     console.log('🔵 runCode - отправляю запрос:', {
         code: code.substring(0, 50) + '...',
         language,
-        input: JSON.stringify(input),
         inputLength: input.length
     });
     
-    const response = await this.request('/code/execute', {
-        method: 'POST',
-        body: JSON.stringify({
-            code: code,
-            language: language,
-            lessonId: window.app?.courseManager?.currentLesson?.id || '',
-            languageId: language === 'python' ? '11111111-1111-1111-1111-111111111111' : '',
-            stdin: input
-        })
-    });
-    
-    const data = await response.json();
-    console.log('🔵 runCode - ответ:', data);
-    return data;
+    try {
+        const response = await this.request('/code/execute', {
+            method: 'POST',
+            body: JSON.stringify({
+                code: code,
+                language: language, 
+                lessonId: window.app?.courseManager?.currentLesson?.id || '',
+                languageId: language === 'python' ? '11111111-1111-1111-1111-111111111111' : 
+                            language === 'javascript' ? '22222222-2222-2222-2222-222222222222' : '',
+                stdin: input
+            })
+        });
+        
+        const data = await response.json();
+        console.log('🔵 runCode - ответ:', data);
+        return data;
+    } catch (error) {
+        console.error('🔴 runCode - ошибка:', error);
+        return {
+            success: false,
+            result: {
+                output: '',
+                error: error.message,
+                executionTime: 0
+            }
+        };
+    }
 }
 async markTheoryAsRead(lessonId) {
         try {
@@ -471,9 +504,30 @@ async getTeacherDashboard() {
     return response.json();
 }
 
-async getCourseStudents(courseId) {
-    const response = await this.request(`/teacher/courses/${courseId}/students`);
-    return response.json();
+async getCourse(courseId) {
+    const response = await this.request(`/courses/${courseId}`);
+    const data = await response.json();
+    
+    console.log('🔥🔥🔥 СЫРОЙ ОТВЕТ ОТ СЕРВЕРА:', JSON.stringify(data, null, 2));
+    
+    if (data.success && data.course) {
+        console.log('🔥🔥🔥 ДАННЫЕ КУРСА ИЗ СЕРВЕРА:', JSON.stringify(data.course, null, 2));
+        
+        return {
+            success: true,
+            course: {
+                id: data.course.id,
+                title: data.course.title,
+                description: data.course.description,
+                difficultyLevel: data.course.difficultyLevel,
+                isPublished: data.course.isPublished,
+                createdBy: data.course.createdBy,
+                programmingLanguageId: data.course.programmingLanguageId,
+                programmingLanguageName: data.course.programmingLanguageName
+            }
+        };
+    }
+    return data;
 }
 
 async getStudentProgress(studentId, courseId) {
@@ -563,5 +617,9 @@ async getAllTeacherStudents() {
         console.error('Ошибка загрузки всех студентов:', error);
         return { success: false, error: error.message };
     }
+}
+async getProgrammingLanguages() {
+    const response = await this.request('/languages');
+    return response.json();
 }
 }

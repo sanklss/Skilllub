@@ -86,7 +86,14 @@
                 <span class="breadcrumb-separator">/</span>
                 <span id="breadcrumb-course">Загрузка...</span>
               </nav>
-              <h1 id="step-title">Выберите урок</h1>
+              
+              <!-- 👇 ДОБАВЛЕН ИНДИКАТОР ЯЗЫКА -->
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">
+                <h1 id="step-title">Выберите урок</h1>
+                <span id="course-language-indicator" class="language-badge"></span>
+              </div>
+              <!-- 👆 КОНЕЦ БЛОКА -->
+              
               <div class="step-meta">
                 <span id="step-number">Шаг 0 из 0</span>
                 <span class="step-duration"></span>
@@ -123,8 +130,12 @@
               <div class="code-section hidden">
                 <div class="editor-header">
                   <label>Язык программирования:</label>
-                  <select class="language-select" id="language-select">
+                  <select class="language-select" id="language-select" disabled>
                     <option value="python">Python</option>
+                    <option value="javascript">JavaScript</option>
+                    <option value="typescript">TypeScript</option>
+                    <option value="java">Java</option>
+                    <option value="csharp">C#</option>
                   </select>
                 </div>
                 <textarea class="code-editor" id="code-editor" placeholder="Напишите ваш код здесь..." disabled></textarea>
@@ -564,6 +575,7 @@
             </select>
           </div>
           
+          
           <div class="modules-container" id="modules-container" style="margin-bottom: 20px;">
             <h4 style="margin: 0 0 15px 0;">Модули и уроки</h4>
             <div id="modules-list"></div>
@@ -973,6 +985,7 @@
       <p class="course-description">{{description}}</p>
       <div class="course-meta">
         <span class="difficulty {{difficulty}}">{{difficultyText}}</span>
+        <span class="language-badge">{{language}}</span>
       </div>
     </div>
   </template>
