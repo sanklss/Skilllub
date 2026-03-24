@@ -15,6 +15,7 @@
     margin: 0 auto;
     padding: 0 1rem;
     height: 100%;
+    gap: 1rem;
 }
 
 .header-brand {
@@ -23,6 +24,23 @@
     gap: 0.75rem;
     font-weight: 700;
     font-size: 1.25rem;
+    flex-shrink: 0;
+    cursor: pointer;
+    transition: opacity 0.2s ease;
+    text-decoration: none;
+    color: inherit;
+}
+
+.header-brand:hover {
+    opacity: 0.8;
+}
+
+.header-brand:active {
+    transform: scale(0.98);
+}
+
+.brand-name {
+    color: var(--text-primary);
 }
 
 .logo {
@@ -35,6 +53,8 @@
 .header-nav {
     display: flex;
     gap: 2rem;
+    flex: 1;
+    justify-content: center;
 }
 
 .nav-item {
@@ -43,6 +63,7 @@
     color: var(--text-secondary);
     position: relative;
     transition: color 0.2s ease;
+    white-space: nowrap;
 }
 
 .nav-item:hover,
@@ -65,12 +86,14 @@
     display: flex;
     align-items: center;
     gap: 1rem;
+    flex-shrink: 0;
 }
 
 .search-box {
     position: relative;
     display: flex;
     align-items: center;
+    flex-shrink: 0;
 }
 
 .search-input {
@@ -94,15 +117,36 @@
     width: 20px;
     height: 20px;
     opacity: 0.5;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+}
+
+.user-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-shrink: 0;
 }
 
 .user-dropdown {
     position: relative;
+    display: inline-block;
+    flex-shrink: 0;
+    max-width: 220px;
 }
 
 .username {
     font-weight: 500;
     color: var(--text-primary);
+    cursor: pointer;
+    white-space: nowrap;
+    display: inline-block;
+    padding: 0.5rem 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 160px;
 }
 
 .user-menu {
@@ -116,16 +160,149 @@
     padding: 0.5rem;
     min-width: 200px;
     margin-top: 0.5rem;
+    z-index: var(--z-dropdown);
 }
 
 .user-menu button {
     width: 100%;
     text-align: left;
     padding: 0.5rem 0.75rem;
-    border-radius: var(--border-radius);
-    transition: background-color 0.2s ease;
+    border-radius: 9999px;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text-secondary);
 }
 
 .user-menu button:hover {
     background-color: var(--bg-hover);
+    color: var(--text-primary);
+    transform: translateY(-1px);
+}
+
+.theme-toggle {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    width: 36px;
+    height: 36px;
+    flex-shrink: 0;
+}
+
+.theme-toggle:hover {
+    background-color: var(--bg-hover);
+    transform: scale(1.05);
+}
+
+.theme-toggle svg {
+    width: 20px;
+    height: 20px;
+    stroke: var(--text-secondary);
+    transition: stroke 0.2s ease;
+}
+
+.theme-toggle:hover svg {
+    stroke: var(--text-primary);
+}
+
+.btn-login, .btn-signup {
+    white-space: nowrap;
+    flex-shrink: 0;
+    padding: 0.5rem 1.25rem;
+}
+
+[data-theme="dark"] .sun-icon {
+    display: inline-block;
+}
+
+[data-theme="dark"] .moon-icon {
+    display: none;
+}
+
+[data-theme="light"] .sun-icon,
+:root:not([data-theme="dark"]) .sun-icon {
+    display: none;
+}
+
+[data-theme="light"] .moon-icon,
+:root:not([data-theme="dark"]) .moon-icon {
+    display: inline-block;
+}
+
+@media (max-width: 1024px) {
+    .search-input {
+        width: 180px;
+    }
+    
+    .username {
+        max-width: 130px;
+        font-size: 0.9rem;
+    }
+}
+
+@media (max-width: 768px) {
+    .header-nav {
+        display: none;
+    }
+    
+    .header-actions {
+        gap: 0.5rem;
+    }
+    
+    .search-input {
+        width: 140px;
+    }
+    
+    .username {
+        max-width: 100px;
+        font-size: 0.85rem;
+    }
+    
+    .theme-toggle {
+        width: 32px;
+        height: 32px;
+    }
+    
+    .theme-toggle svg {
+        width: 18px;
+        height: 18px;
+    }
+    
+    .btn-login, .btn-signup {
+        padding: 0.4rem 0.8rem;
+        font-size: 0.8rem;
+    }
+    
+    .user-menu {
+        min-width: 180px;
+        right: -10px;
+    }
+}
+
+@media (max-width: 480px) {
+    .search-input {
+        width: 100px;
+    }
+    
+    .username {
+        max-width: 70px;
+        font-size: 0.8rem;
+    }
+    
+    .btn-login, .btn-signup {
+        padding: 0.35rem 0.7rem;
+        font-size: 0.75rem;
+    }
+    
+    .header-actions {
+        gap: 0.3rem;
+    }
 }

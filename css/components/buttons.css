@@ -370,7 +370,6 @@
     transform: none !important;
 }
 
-/* Состояние загрузки */
 .btn-success.loading,
 .btn-primary.loading,
 .btn-danger.loading,
@@ -402,7 +401,6 @@
     to { transform: rotate(1turn); }
 }
 
-/* ========== МЕДИА-ЗАПРОСЫ ========== */
 
 @media (max-width: 768px) {
     .btn {
@@ -448,4 +446,173 @@
     .course-actions .btn-primary {
         width: 100%;
     }
+}
+#run-code,
+#reset-code,
+#submit-code {
+    padding: 0.6rem 1.2rem;
+    border-radius: 9999px;
+    font-weight: 600;
+    font-size: 0.875rem;
+    transition: all 0.2s ease;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border: none;
+}
+
+#run-code {
+    background: linear-gradient(135deg, var(--primary-color), #1d4ed8);
+    color: white;
+    box-shadow: 0 4px 6px rgba(37, 99, 235, 0.2);
+}
+
+#run-code:hover {
+    background: linear-gradient(135deg, #1d4ed8, #1e40af);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(37, 99, 235, 0.3);
+}
+
+#reset-code {
+    background-color: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    color: var(--text-secondary);
+}
+
+#reset-code:hover {
+    background-color: var(--bg-hover);
+    color: var(--text-primary);
+    transform: translateY(-2px);
+}
+
+#submit-code {
+    background: linear-gradient(135deg, var(--success-color), #059669);
+    color: white;
+    box-shadow: 0 4px 6px rgba(16, 185, 129, 0.2);
+}
+
+#submit-code:hover {
+    background: linear-gradient(135deg, #059669, #047857);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(16, 185, 129, 0.3);
+}
+
+#prev-step,
+#next-step {
+    padding: 0.6rem 1.5rem;
+    border-radius: 9999px;
+    font-weight: 600;
+    font-size: 0.875rem;
+    transition: all 0.2s ease;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border: none;
+}
+
+#prev-step {
+    background: linear-gradient(135deg, var(--secondary-color), #475569);
+    color: white;
+}
+
+#prev-step:hover:not(:disabled) {
+    background: linear-gradient(135deg, #475569, #334155);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(100, 116, 139, 0.3);
+}
+
+#next-step {
+    background: linear-gradient(135deg, var(--primary-color), #1d4ed8);
+    color: white;
+    box-shadow: 0 4px 6px rgba(37, 99, 235, 0.2);
+}
+
+#next-step:hover:not(:disabled) {
+    background: linear-gradient(135deg, #1d4ed8, #1e40af);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(37, 99, 235, 0.3);
+}
+
+#prev-step:disabled,
+#next-step:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
+    transform: none;
+}
+
+#reset-filters {
+    padding: 0.5rem 1.25rem;
+    border-radius: 9999px;
+    font-weight: 500;
+    font-size: 0.875rem;
+    transition: all 0.2s ease;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    background: linear-gradient(135deg, var(--secondary-color), #475569);
+    color: white;
+    border: none;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+#reset-filters:hover {
+    background: linear-gradient(135deg, #475569, #334155);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+#reset-filters:active {
+    transform: translateY(0);
+}
+[class*="btn"]::before,
+[class*="btn"]::after,
+[id*="btn"]::before,
+[id*="btn"]::after,
+[id*="button"]::before,
+[id*="button"]::after,
+.tab-btn::before,
+.tab-btn::after,
+.close-btn::before,
+.close-btn::after,
+.search-btn::before,
+.search-btn::after {
+    content: none !important;
+    display: none !important;
+}
+#create-course-btn,
+.create-course-btn {
+    padding: 0.6rem 1.5rem;
+    border-radius: 9999px;
+    font-weight: 600;
+    font-size: 0.875rem;
+    transition: all 0.2s ease;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    background: linear-gradient(135deg, var(--primary-color), #1d4ed8);
+    color: white;
+    border: none;
+    box-shadow: 0 4px 6px rgba(37, 99, 235, 0.2);
+}
+
+#create-course-btn:hover,
+.create-course-btn:hover {
+    background: linear-gradient(135deg, #1d4ed8, #1e40af);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(37, 99, 235, 0.3);
+}
+
+#create-course-btn:active,
+.create-course-btn:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2);
 }

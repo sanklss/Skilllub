@@ -622,4 +622,18 @@ async getProgrammingLanguages() {
     const response = await this.request('/languages');
     return response.json();
 }
+
+async getCourseStudents(courseId) {
+    try {
+        const response = await this.request(`/teacher/courses/${courseId}/students`);
+        const data = await response.json();
+        
+        console.log('📊 getCourseStudents ответ:', data);
+        
+        return data;
+    } catch (error) {
+        console.error('Ошибка загрузки студентов курса:', error);
+        return { success: false, error: error.message };
+    }
+}
 }

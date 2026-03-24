@@ -1,6 +1,7 @@
 @import url('./base/variables.css');
 @import url('./base/reset.css');
 @import url('./base/typography.css');
+@import url('./themes/dark-theme.css');
 
 @import url('./components/buttons.css');
 @import url('./components/forms.css');
@@ -81,7 +82,6 @@
     opacity: 0.5;
 }
 
-/* Скрытые элементы */
 .hidden {
     display: none !important;
 }
@@ -98,4 +98,66 @@
 
 .page-section.active {
     display: block;
+}
+
+.theme-toggle {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0.5rem;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    width: 40px;
+    height: 40px;
+    margin-right: 0.5rem;
+}
+
+.theme-toggle:hover {
+    background-color: var(--bg-hover);
+    transform: scale(1.05);
+}
+
+.theme-toggle svg {
+    width: 20px;
+    height: 20px;
+    stroke: var(--text-secondary);
+    transition: stroke 0.2s ease;
+}
+
+.theme-toggle:hover svg {
+    stroke: var(--text-primary);
+}
+
+@media (max-width: 768px) {
+    .theme-toggle {
+        width: 36px;
+        height: 36px;
+        margin-right: 0.25rem;
+    }
+    
+    .theme-toggle svg {
+        width: 18px;
+        height: 18px;
+    }
+}
+
+[data-theme="dark"] .sun-icon {
+    display: inline-block;
+}
+
+[data-theme="dark"] .moon-icon {
+    display: none;
+}
+
+[data-theme="light"] .sun-icon,
+:root:not([data-theme="dark"]) .sun-icon {
+    display: none;
+}
+
+[data-theme="light"] .moon-icon,
+:root:not([data-theme="dark"]) .moon-icon {
+    display: inline-block;
 }

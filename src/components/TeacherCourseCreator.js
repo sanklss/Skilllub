@@ -403,14 +403,14 @@ export class TeacherCourseCreator {
                     <div style="display: flex; gap: 20px; align-items: center; flex-wrap: wrap;">
                         <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;">
                             <input type="checkbox" class="lesson-quiz-checkbox" style="width: 16px; height: 16px;"> 
-                            <span style="font-size: 14px;">📝 Тест</span>
+                            <span style="font-size: 14px;">Тест</span>
                         </label>
                         <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;">
                             <input type="checkbox" class="lesson-code-checkbox" style="width: 16px; height: 16px;"> 
-                            <span style="font-size: 14px;">💻 Код</span>
+                            <span style="font-size: 14px;">Код</span>
                         </label>
                         <span style="color: #718096; font-size: 14px; display: flex; align-items: center;">
-                            📖 Теория
+                            Теория
                         </span>
                         <button 
                             type="button" 
@@ -628,13 +628,13 @@ export class TeacherCourseCreator {
                 module.lessons.forEach((lesson) => {
                     let badges = '';
                     if (lesson.hasTheory) {
-                        badges += '<span style="background: #64748b; color: white; padding: 3px 8px; border-radius: 12px; font-size: 12px; margin-right: 5px;">📖 Теория</span>';
+                        badges += '<span style="background: #64748b; color: white; padding: 3px 8px; border-radius: 12px; font-size: 12px; margin-right: 5px;">Теория</span>';
                     }
                     if (lesson.hasQuiz) {
-                        badges += '<span style="background: #3b82f6; color: white; padding: 3px 8px; border-radius: 12px; font-size: 12px; margin-right: 5px;">📝 Тест</span>';
+                        badges += '<span style="background: #3b82f6; color: white; padding: 3px 8px; border-radius: 12px; font-size: 12px; margin-right: 5px;">Тест</span>';
                     }
                     if (lesson.hasCode) {
-                        badges += '<span style="background: #10b981; color: white; padding: 3px 8px; border-radius: 12px; font-size: 12px; margin-right: 5px;">💻 Код</span>';
+                        badges += '<span style="background: #10b981; color: white; padding: 3px 8px; border-radius: 12px; font-size: 12px; margin-right: 5px;">Код</span>';
                     }
                     
                     moduleHtml += `
@@ -730,26 +730,41 @@ export class TeacherCourseCreator {
         modal.classList.remove('hidden');
     }
 
-    async loadLessonContent(courseId, lessonId) {
-        console.log('📥 Загрузка контента урока:', lessonId);
-        try {
-            const token = localStorage.getItem('authToken');
-            
-            const theoryRes = await fetch(`${this.baseUrl}/api/teacher-course/${courseId}/lesson/${lessonId}/theory`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            if (theoryRes.ok) {
-                const theoryData = await theoryRes.json();
-                if (theoryData.success) {
-                    document.getElementById('theory-content').value = theoryData.content || '';
-                }
+async loadLessonContent(courseId, lessonId) {
+    console.log('📥 Загрузка контента урока:', { courseId, lessonId });
+    try {
+        const token = localStorage.getItem('authToken');
+        
+        const theoryUrl = `${this.baseUrl}/api/teacher-course/${courseId}/lesson/${lessonId}/theory`;
+        console.log('📥 Теория URL:', theoryUrl);
+        
+        const theoryRes = await fetch(theoryUrl, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        console.log('📥 Теория статус:', theoryRes.status);
+        
+        if (theoryRes.ok) {
+            const theoryData = await theoryRes.json();
+            console.log('📥 Теория данные:', theoryData);
+            if (theoryData.success) {
+                document.getElementById('theory-content').value = theoryData.content || '';
+                console.log('✅ Теория загружена, длина:', theoryData.content?.length || 0);
             }
+        }
+        
+        const quizTabBtn = document.getElementById('tab-quiz-btn');
+        if (quizTabBtn && quizTabBtn.style.display !== 'none') {
+            const quizUrl = `${this.baseUrl}/api/teacher-course/${courseId}/lesson/${lessonId}/quiz`;
+            console.log('📥 Тест URL:', quizUrl);
             
-            const quizRes = await fetch(`${this.baseUrl}/api/teacher-course/${courseId}/lesson/${lessonId}/quiz`, {
+            const quizRes = await fetch(quizUrl, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
+            console.log('📥 Тест статус:', quizRes.status);
+            
             if (quizRes.ok) {
                 const quizData = await quizRes.json();
+                console.log('📥 Тест данные:', quizData);
                 if (quizData.success && quizData.quiz) {
                     document.getElementById('quiz-question').value = quizData.quiz.questionText || '';
                     document.getElementById('quiz-option1').value = quizData.quiz.option1 || '';
@@ -758,35 +773,61 @@ export class TeacherCourseCreator {
                     document.getElementById('quiz-option4').value = quizData.quiz.option4 || '';
                     document.getElementById('quiz-correct').value = quizData.quiz.correctOption || '1';
                     document.getElementById('quiz-explanation').value = quizData.quiz.explanation || '';
+                    console.log('✅ Тест загружен');
                 }
             }
-            
-            const codeRes = await fetch(`${this.baseUrl}/api/teacher-course/${courseId}/lesson/${lessonId}/code`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            if (codeRes.ok) {
-                const codeData = await codeRes.json();
-                if (codeData.success && codeData.code) {
-                    document.getElementById('code-description').value = codeData.code.taskDescription || '';
-                    document.getElementById('code-starter').value = codeData.code.starterCode || 'def solution():\n    pass';
-                    document.getElementById('code-solution').value = codeData.code.solutionCode || '';
-                    
-                    const testsContainer = document.getElementById('test-cases-container');
-                    testsContainer.innerHTML = '';
-                    if (codeData.code.testCases && codeData.code.testCases.length > 0) {
-                        codeData.code.testCases.forEach(test => {
-                            this.addTestCase(test.input, test.expectedOutput, test.isHidden);
-                        });
-                    } else {
-                        this.addTestCase();
-                    }
-                }
-            }
-            
-        } catch (error) {
-            console.error('❌ Ошибка загрузки контента:', error);
         }
+        
+        const codeUrl = `${this.baseUrl}/api/teacher-course/${courseId}/lesson/${lessonId}/code`;
+        console.log('📥 Код URL:', codeUrl);
+        
+        const codeRes = await fetch(codeUrl, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        console.log('📥 Код статус:', codeRes.status);
+        
+        if (codeRes.ok) {
+    const codeData = await codeRes.json();
+    console.log('📥 Код данные:', codeData);
+    
+            if (codeData.success && codeData.code) {
+                const codeObject = codeData.code; 
+                const actualCode = codeObject.code; 
+                
+                console.log('📦 actualCode:', actualCode);
+                console.log('  - templateCode:', actualCode.templateCode);
+                console.log('  - starterCode:', actualCode.starterCode);
+                console.log('  - solutionCode:', actualCode.solutionCode);
+                console.log('  - testCases:', actualCode.testCases);
+                
+                document.getElementById('code-description').value = actualCode.templateCode || '';
+                document.getElementById('code-starter').value = actualCode.starterCode || 'def solution():\n    pass';
+                document.getElementById('code-solution').value = actualCode.solutionCode || '';
+                
+                const testsContainer = document.getElementById('test-cases-container');
+                testsContainer.innerHTML = '';
+                
+                const testCases = actualCode.testCases || [];
+                console.log('📊 testCases:', testCases);
+                
+                if (testCases.length > 0) {
+                    testCases.forEach(test => {
+                        console.log('  Добавляем тест:', test);
+                        this.addTestCase(test.input || '', test.expectedOutput || '', test.isHidden || false);
+                    });
+                    console.log(`✅ Загружено ${testCases.length} тестов`);
+                } else {
+                    this.addTestCase();
+                    console.log('⚠️ Тестов нет, добавлен пустой');
+                }
+                console.log('✅ Код загружен');
+            }
+        }
+        
+    } catch (error) {
+        console.error('❌ Ошибка загрузки контента:', error);
     }
+}
 
     switchTab(tabName) {
         const codeTab = document.getElementById('code-tab');

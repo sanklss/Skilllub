@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>LearnBox SPA — Supabase Edition</title>
+  <title>Skilllub</title>
   <link rel="stylesheet" href="css/main.css">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
 </head>
@@ -11,22 +11,41 @@
   <div class="page-wrapper">
     <header class="stepik-header">
       <div class="header-container">
-        <div class="header-brand">
+        <a href="#" class="header-brand" onclick="window.app.uiManager.showSection('catalog'); return false;" style="text-decoration: none; cursor: pointer;">
           <div class="logo"></div>
-          <span class="brand-name">LearnBox</span>
-        </div>
+          <span class="brand-name">Skilllub</span>
+        </a>
         <nav class="header-nav">
           <a href="#catalog" class="nav-item active" data-section="catalog">Каталог курсов</a>
           <a href="#my-courses" class="nav-item" data-section="my-courses">Моё обучение</a>
           <a href="#profile" class="nav-item" data-section="profile">Профиль</a>
         </nav>
         <div class="header-actions">
-          <div class="search-box">
-            <input type="text" placeholder="Поиск курсов..." class="search-input" id="search-input">
-            <button class="search-btn"></button>
-          </div>
-          <div class="user-controls" id="user-controls">
-          </div>
+    <div class="search-box">
+        <input type="text" placeholder="Поиск курсов..." class="search-input" id="search-input">
+        <button class="search-btn"></button>
+    </div>
+    
+    <div class="user-controls" id="user-controls">
+    </div>
+    
+    <button class="theme-toggle" id="theme-toggle" aria-label="Переключить тему">
+        <svg class="sun-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="5"/>
+            <line x1="12" y1="1" x2="12" y2="3"/>
+            <line x1="12" y1="21" x2="12" y2="23"/>
+            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+            <line x1="1" y1="12" x2="3" y2="12"/>
+            <line x1="21" y1="12" x2="23" y2="12"/>
+            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+        </svg>
+        <svg class="moon-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+        </svg>
+    </button>
+</div>
         </div>
       </div>
     </header>
@@ -60,7 +79,7 @@
         </div>
         <div class="my-courses-container" id="my-courses-container">
           <div class="empty-state">
-            <div class="empty-icon">📚</div>
+            <div class="empty-icon"></div>
             <h3>У вас пока нет активных курсов</h3>
             <p>Начните обучение, выбрав курс из каталога</p>
             <button class="btn-primary" onclick="showSection('catalog')">Перейти в каталог</button>
@@ -87,12 +106,10 @@
                 <span id="breadcrumb-course">Загрузка...</span>
               </nav>
               
-              <!-- 👇 ДОБАВЛЕН ИНДИКАТОР ЯЗЫКА -->
               <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">
                 <h1 id="step-title">Выберите урок</h1>
                 <span id="course-language-indicator" class="language-badge"></span>
               </div>
-              <!-- 👆 КОНЕЦ БЛОКА -->
               
               <div class="step-meta">
                 <span id="step-number">Шаг 0 из 0</span>
@@ -223,9 +240,6 @@
           </button>
           <button class="admin-nav-item" id="admin-nav-users">
               Пользователи
-          </button>
-          <button class="admin-nav-item" id="admin-nav-courses">
-              Курсы
           </button>
           </nav>
 
@@ -624,9 +638,9 @@
         <input type="hidden" id="lesson-editor-lesson-id">
         
         <div class="lesson-editor-tabs" style="display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px;">
-          <button class="tab-btn active" data-tab="theory" id="tab-theory-btn">📖 Теория</button>
-          <button class="tab-btn" data-tab="quiz" id="tab-quiz-btn">📝 Тест</button>
-          <button class="tab-btn" data-tab="code" id="tab-code-btn">💻 Код</button>
+          <button class="tab-btn active" data-tab="theory" id="tab-theory-btn">Теория</button>
+          <button class="tab-btn" data-tab="quiz" id="tab-quiz-btn">Тест</button>
+          <button class="tab-btn" data-tab="code" id="tab-code-btn">Код</button>
         </div>
         
         <div class="tab-content active" id="theory-tab">
@@ -992,7 +1006,7 @@
 
   <template id="empty-courses-template">
     <div class="empty-state">
-      <div class="empty-icon">🤔</div>
+      <div class="empty-icon"></div>
       <h3>Курсы не найдены</h3>
       <p>Попробуйте обновить страницу или проверьте подключение</p>
     </div>

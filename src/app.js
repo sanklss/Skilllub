@@ -10,6 +10,7 @@ import { TeacherManager } from './components/TeacherManager.js';
 import { MyCoursesManager } from './components/MyCoursesManager.js';
 import { SessionManager } from './services/SessionManager.js';
 import { AchievementsManager } from './components/AchievementsManager.js'; 
+import { ThemeManager } from './services/ThemeManager.js';
 
 class LearnBoxApp {
     constructor() {
@@ -18,6 +19,7 @@ class LearnBoxApp {
         this.apiService = new ApiService();
         this.uiManager = new UIManager();
         this.sessionManager = new SessionManager();
+        this.themeManager = new ThemeManager();
         
         this.authManager = new AuthManager(
             this.apiService, 
@@ -74,7 +76,13 @@ class LearnBoxApp {
         this.initializeValidation();
         await this.authManager.initialize();
         await this.teacherManager.initialize();
-
+        
+        const themeToggle = document.getElementById('theme-toggle');
+        if (themeToggle) {
+            themeToggle.addEventListener('click', () => {
+                this.themeManager.toggleTheme();
+            });
+        }
         
         if (this.authManager.isAuthenticated()) {
             this.sessionManager.startSessionListener();

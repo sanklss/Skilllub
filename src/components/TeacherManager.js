@@ -120,13 +120,10 @@ export class TeacherManager {
                     </div>
                 </div>
                 <div class="course-actions">
-                    <button class="btn-secondary btn-sm" onclick="app.teacherManager.viewCourseStudents('${course.id}')">
-                        👥 Студенты
-                    </button>
-                    <button class="btn-primary btn-sm" onclick="app.teacherManager.editCourse('${course.id}')">
-                        ⚙️ Управлять
-                    </button>
-                </div>
+                <button class="btn-secondary btn-sm" onclick="app.teacherManager.viewCourseStudents('${course.id}')">
+                    Студенты
+                </button>
+            </div>
             </div>
         `).join('');
     }
@@ -150,7 +147,7 @@ export class TeacherManager {
         if (!courses || courses.length === 0) {
             container.innerHTML = `
                 <div class="empty-state" style="text-align: center; padding: 40px;">
-                    <div style="font-size: 48px; margin-bottom: 20px;">📚</div>
+                    <div style="font-size: 48px; margin-bottom: 20px;"></div>
                     <h3>У вас пока нет курсов</h3>
                     <p class="muted">Создайте свой первый курс!</p>
                     <button class="btn-primary" id="create-course-btn" style="margin-top: 20px;">
@@ -172,15 +169,15 @@ export class TeacherManager {
                 <h3>${course.title}</h3>
                 <p class="description">${course.description || 'Нет описания'}</p>
                 <div class="course-meta">
-                    <span>📊 Прогресс: ${Math.round(course.averageProgress)}%</span>
-                    <span>👥 ${course.studentCount} студентов</span>
+                    <span> Прогресс: ${Math.round(course.averageProgress)}%</span>
+                    <span> ${course.studentCount} студентов</span>
                 </div>
                 <div class="course-actions">
                     <button class="btn-secondary btn-sm" onclick="app.teacherManager.editCourse('${course.id}')">
-                        ✏️ Редактировать
+                         Редактировать
                     </button>
                     <button class="btn-secondary btn-sm" onclick="app.teacherManager.manageLessons('${course.id}')">
-                        📖 Уроки
+                         Уроки
                     </button>
                 </div>
             </div>
@@ -299,7 +296,7 @@ export class TeacherManager {
                 `<div class="course-badge">
                     ${c.courseTitle}: <strong>${c.progress}%</strong>
                     <button class="btn-icon btn-xs" onclick="app.teacherManager.viewStudentCourseProgress('${student.userId}', '${c.courseId}')">
-                        👁️
+                        Смотреть
                     </button>
                 </div>`
             ).join('');
@@ -318,7 +315,7 @@ export class TeacherManager {
                     <td>
                         <button class="btn-secondary btn-sm" 
                                 onclick="app.teacherManager.showStudentSelector('${student.userId}')">
-                            📊 Выбрать курс
+                             Выбрать курс
                         </button>
                     </td>
                 </tr>
@@ -464,7 +461,7 @@ export class TeacherManager {
                             <td>
                                 <button class="btn-secondary btn-xs" 
                                         onclick="app.teacherManager.viewStudentCourseProgress('${student.userId}', '${courseId}')">
-                                    👁️ Детали
+                                     Детали
                                 </button>
                             </td>
                         </tr>
@@ -504,8 +501,8 @@ export class TeacherManager {
                     <div class="stat-item" style="margin-bottom: 10px;">
                         <div style="font-weight: 600;">${c.title}</div>
                         <div style="display: flex; justify-content: space-between; margin-top: 5px;">
-                            <span>👥 ${c.studentCount} студентов</span>
-                            <span>📊 ${Math.round(c.averageProgress)}%</span>
+                            <span> ${c.studentCount} студентов</span>
+                            <span> ${Math.round(c.averageProgress)}%</span>
                         </div>
                     </div>
                 `).join('');
@@ -561,10 +558,9 @@ export class TeacherManager {
         document.getElementById('modal-total-lessons').textContent = progress.totalLessons || 0;
         document.getElementById('modal-completed-lessons').textContent = progress.completedLessons || 0;
         
-        // Добавляем информацию о курсе
         const courseInfoEl = document.getElementById('modal-course-info');
         if (courseInfoEl && progress.courseTitle) {
-            courseInfoEl.innerHTML = `📚 <strong>Курс:</strong> ${progress.courseTitle}`;
+            courseInfoEl.innerHTML = ` <strong>Курс:</strong> ${progress.courseTitle}`;
         }
         
         const percent = progress.totalLessons > 0 
@@ -672,10 +668,8 @@ export class TeacherManager {
             
             if (result.success) {
                 this.uiManager.showToast('Урок отмечен как завершенный', 'success');
-                // Обновляем данные
                 const modal = document.getElementById('student-progress-modal');
                 if (modal && !modal.classList.contains('hidden')) {
-                    // Находим текущий курс из модального окна
                     const courseInfo = document.getElementById('modal-course-info')?.textContent;
                     const courseMatch = courseInfo?.match(/Курс:\s*(.+)$/);
                     if (courseMatch) {

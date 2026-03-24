@@ -62,14 +62,14 @@ export class CourseManager {
 
     getLanguageIcon(languageName) {
         const icons = {
-            'python': '🐍 Python',
-            'javascript': '📜 JavaScript',
-            'typescript': '📘 TypeScript',
-            'java': '☕ Java',
-            'csharp': '🎯 C#',
-            'cpp': '⚙️ C++',
-            'go': '🔷 Go',
-            'rust': '⚡ Rust'
+            'python': 'Python',
+            'javascript': 'JavaScript',
+            'typescript': 'TypeScript',
+            'java': 'Java',
+            'csharp': 'C#',
+            'cpp': 'C++',
+            'go': 'Go',
+            'rust': 'Rust'
         };
         return icons[languageName?.toLowerCase()] || `💻 ${languageName || 'Программирование'}`;
     }
@@ -1050,14 +1050,14 @@ async openCourse(courseId) {
             }
             
             outputSection.classList.remove('hidden');
-            outputSection.innerHTML = `<div class="output-content">⏳ Выполняется...</div>`;
+            outputSection.innerHTML = `<div class="output-content">Выполняется...</div>`;
             
             const response = await this.api.runCode(code, language, inputData);
             const result = response.result || response;
             
             let outputText = result.output || 'Код выполнен без вывода';
             if (result.error) {
-                outputText = `❌ Ошибка:\n${result.error}`;
+                outputText = `Ошибка:\n${result.error}`;
             }
             
             outputSection.innerHTML = `<div class="output-content">${outputText}</div>`;
@@ -1069,7 +1069,7 @@ async openCourse(courseId) {
             
             const outputSection = document.getElementById('code-output-section');
             if (outputSection) {
-                outputSection.innerHTML = `<div class="output-content">❌ Ошибка: ${error.message}</div>`;
+                outputSection.innerHTML = `<div class="output-content">Ошибка: ${error.message}</div>`;
             }
             
             this.uiManager.showButtonLoading('run-code', false);
@@ -1151,7 +1151,7 @@ async openCourse(courseId) {
             outputSection.classList.remove('hidden');
             let programOutput = runResult.output || 'Код выполнен без вывода';
             if (runResult.error) {
-                programOutput = `❌ Ошибка:\n${runResult.error}`;
+                programOutput = `Ошибка:\n${runResult.error}`;
             }
             outputSection.innerHTML = `<div class="output-content">${programOutput}</div>`;
             
@@ -1172,7 +1172,7 @@ async openCourse(courseId) {
                 if (testResponse.result.passedTests === testResponse.result.totalTests && 
                     testResponse.result.totalTests > 0) {
                     
-                    this.uiManager.showToast('🎉 Задание выполнено! Урок завершен.', 'success');
+                    this.uiManager.showToast('Задание выполнено! Урок завершен.', 'success');
                     
                     await this.refreshLessonStatus(this.currentLesson.id);
                     await this.checkAndUpdateModuleCompletion();
@@ -1186,7 +1186,7 @@ async openCourse(courseId) {
                         }
                     }
                 } else {
-                    this.uiManager.showToast(`❌ Пройдено ${testResponse.result.passedTests || 0} из ${testResponse.result.totalTests || 0} тестов`, 'warning');
+                    this.uiManager.showToast(`Пройдено ${testResponse.result.passedTests || 0} из ${testResponse.result.totalTests || 0} тестов`, 'warning');
                 }
             } else {
                 console.log('🔴 API returned error:', testResponse.error);
@@ -1217,7 +1217,7 @@ async openCourse(courseId) {
         try {
             if (!this.userId) return;
             
-            console.log('🔄 Обновление прогресса для курса:', courseId);
+            console.log('Обновление прогресса для курса:', courseId);
             
             const enrollmentResult = await this.api.checkEnrollment(courseId);
             
@@ -1256,7 +1256,7 @@ async openCourse(courseId) {
                 }
             }
         } catch (error) {
-            console.error('❌ Ошибка обновления прогресса:', error);
+            console.error('Ошибка обновления прогресса:', error);
         }
     }
 
@@ -1512,53 +1512,53 @@ async openCourse(courseId) {
         }
         
         if (status.isCompleted) {
-            statusElement.textContent = '✅ Завершен';
+            statusElement.textContent = 'Завершен';
             statusElement.className = 'lesson-status completed';
         } else if (status.hasQuiz && status.hasCodeExercise) {
             if (status.quizCompleted && status.codeCompleted) {
-                statusElement.textContent = '✅ Завершен';
+                statusElement.textContent = 'Завершен';
                 statusElement.className = 'lesson-status completed';
             } else if (status.quizCompleted) {
-                statusElement.textContent = '📝 Тест пройден';
+                statusElement.textContent = 'Тест пройден';
                 statusElement.className = 'lesson-status quiz-done';
             } else if (status.codeCompleted) {
-                statusElement.textContent = '💻 Код готов';
+                statusElement.textContent = 'Код готов';
                 statusElement.className = 'lesson-status code-done';
             } else if (status.theoryCompleted) {
-                statusElement.textContent = '📖 Теория';
+                statusElement.textContent = 'Теория';
                 statusElement.className = 'lesson-status theory';
             } else {
-                statusElement.textContent = '📝 Не начат';
+                statusElement.textContent = 'Не начат';
                 statusElement.className = 'lesson-status not-started';
             }
         } else if (status.hasQuiz) {
             if (status.quizCompleted) {
-                statusElement.textContent = '✅ Завершен';
+                statusElement.textContent = 'Завершен';
                 statusElement.className = 'lesson-status completed';
             } else if (status.theoryCompleted) {
-                statusElement.textContent = '📖 Теория';
+                statusElement.textContent = 'Теория';
                 statusElement.className = 'lesson-status theory';
             } else {
-                statusElement.textContent = '📝 Не начат';
+                statusElement.textContent = 'Не начат';
                 statusElement.className = 'lesson-status not-started';
             }
         } else if (status.hasCodeExercise) {
             if (status.codeCompleted) {
-                statusElement.textContent = '✅ Завершен';
+                statusElement.textContent = 'Завершен';
                 statusElement.className = 'lesson-status completed';
             } else if (status.theoryCompleted) {
-                statusElement.textContent = '📖 Теория';
+                statusElement.textContent = 'Теория';
                 statusElement.className = 'lesson-status theory';
             } else {
-                statusElement.textContent = '📝 Не начат';
+                statusElement.textContent = 'Не начат';
                 statusElement.className = 'lesson-status not-started';
             }
         } else {
             if (status.theoryCompleted) {
-                statusElement.textContent = '✅ Завершен';
+                statusElement.textContent = 'Завершен';
                 statusElement.className = 'lesson-status completed';
             } else {
-                statusElement.textContent = '📝 Не начат';
+                statusElement.textContent = 'Не начат';
                 statusElement.className = 'lesson-status not-started';
             }
         }
@@ -1569,7 +1569,7 @@ async openCourse(courseId) {
             const result = await this.api.getLessonDetailedStatus(lessonId);
             
             if (result.success && result.status && result.status.isCompleted) {
-                console.log('🎉 Lesson fully completed:', lessonId);
+                console.log('Lesson fully completed:', lessonId);
                 await this.onLessonCompleted(lessonId);
                 return true;
             }
@@ -1584,7 +1584,7 @@ async openCourse(courseId) {
     async onLessonCompleted(lessonId) {
         console.log('🎉 Lesson fully completed:', lessonId);
         
-        this.uiManager.showToast('🎉 Урок полностью завершен!', 'success');
+        this.uiManager.showToast('Урок полностью завершен!', 'success');
         
         if (this.currentCourse) {
             const oldProgress = this.courseProgress;
@@ -1608,18 +1608,18 @@ async openCourse(courseId) {
     }
 
     async checkCourseCompletion(courseId = null) {
-        console.log('🎯 ПРОВЕРКА ЗАВЕРШЕНИЯ КУРСА');
+        console.log('ПРОВЕРКА ЗАВЕРШЕНИЯ КУРСА');
         
         try {
             const user = this.authManager.getCurrentUser();
             if (!user) {
-                console.log('❌ Пользователь не авторизован');
+                console.log('Пользователь не авторизован');
                 return;
             }
             
             const targetCourseId = courseId || this.currentCourse?.id;
             if (!targetCourseId) {
-                console.log('❌ Нет ID курса');
+                console.log('Нет ID курса');
                 return;
             }
             
@@ -1634,7 +1634,7 @@ async openCourse(courseId) {
             console.log(`📊 Прогресс: ${progress}%`);
             
             if (progress >= 100) {
-                console.log('🎉 КУРС ЗАВЕРШЕН!');
+                console.log('КУРС ЗАВЕРШЕН!');
                 
                 let courseTitle = this.currentCourse?.title;
                 let teacherName = '';

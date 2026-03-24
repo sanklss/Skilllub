@@ -1,4 +1,3 @@
-// src/components/QuizManager.js
 export class QuizManager {
     constructor(apiService, uiManager, authManager, courseManager) {
         this.api = apiService;
