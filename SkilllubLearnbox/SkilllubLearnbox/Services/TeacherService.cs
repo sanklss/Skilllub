@@ -357,7 +357,7 @@ public class TeacherService
             {
                 case "complete":
                 case "complete_lesson":
-                    await _progressService.CompleteLessonAsync(action.UserId, action.LessonId);
+                    await _progressService.ForceCompleteLessonAsync(action.UserId, action.LessonId);
                     _logger.LogInformation("Преподаватель {TeacherId} завершил урок {LessonId} для студента {UserId}",
                         teacherId, action.LessonId, action.UserId);
                     break;

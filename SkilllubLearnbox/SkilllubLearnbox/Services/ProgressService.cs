@@ -582,6 +582,41 @@ public class ProgressService
         }
     }
 
+    public async Task ForceCompleteLessonAsync(string userId, string lessonId)
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(userId) || string.IsNullOrEmpty(lessonId))
+                return;
+
+            await _client.InitializeAsync();
+
+            var progress = await GetOrCreateUserProgressAsync(userId, lessonId);
+
+            progress.TheoryCompleted = true;
+            progress.QuizCompleted = true;
+            progress.CodeCompleted = true;
+            progress.Completed = true;
+            progress.BestScore = Math.Max(progress.BestScore, 100);
+            progress.LastAttempt = DateTime.UtcNow;
+            progress.AttemptsCount++;
+
+            await _client.From<UserProgress>().Update(progress);
+            _logger.LogInformation("👨‍🏫 Преподаватель принудительно завершил урок {LessonId} для студента {UserId}", lessonId, userId);
+
+            await CheckAndCompleteModuleAsync(userId, lessonId);
+
+            var module = await GetModuleByLessonIdAsync(lessonId);
+            if (module != null && !string.IsNullOrEmpty(module.CourseId))
+            {
+                await UpdateCourseProgressAsync(userId, module.CourseId);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "❌ Ошибка при принудительном завершении урока");
+        }
+    }
     public async Task<bool> EnrollUserInCourseAsync(string userId, string courseId)
     {
         try

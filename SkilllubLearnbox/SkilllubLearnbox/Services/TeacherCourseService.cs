@@ -8,13 +8,16 @@ public class TeacherCourseService
 {
     private readonly ILogger<TeacherCourseService> _logger;
     private readonly Supabase.Client _client;
+    private readonly CourseService _courseService;
 
     public TeacherCourseService(
         ILogger<TeacherCourseService> logger,
-        Supabase.Client client)
+        Supabase.Client client,
+        CourseService courseService)
     {
         _logger = logger;
         _client = client;
+        _courseService = courseService;
     }
 
     public async Task<CourseTemplateResponseDto> CreateCourseTemplateAsync(
@@ -342,23 +345,32 @@ public class TeacherCourseService
                 return null;
             }
 
-            var pythonLang = await GetPythonLanguageId();
-            if (string.IsNullOrEmpty(pythonLang))
+            // Получаем курс, чтобы узнать язык
+            var course = await _courseService.GetCourseByIdAsync(courseId);
+            if (course == null)
             {
-                _logger.LogWarning("❌ Язык Python не найден");
+                _logger.LogWarning("❌ Курс не найден");
                 return null;
             }
-            _logger.LogWarning("✅ Python language ID: {LanguageId}", pythonLang);
+
+            var courseLanguageId = course.ProgrammingLanguageId;
+            _logger.LogWarning("✅ Язык курса ID: {LanguageId}", courseLanguageId);
+
+            if (string.IsNullOrEmpty(courseLanguageId))
+            {
+                _logger.LogWarning("❌ У курса не указан язык");
+                return null;
+            }
 
             var templateResponse = await _client
                 .From<CodeTemplate>()
                 .Filter("lesson_id", Supabase.Postgrest.Constants.Operator.Equals, lessonId)
-                .Filter("language_id", Supabase.Postgrest.Constants.Operator.Equals, pythonLang)
+                .Filter("language_id", Supabase.Postgrest.Constants.Operator.Equals, courseLanguageId)
                 .Get();
 
             var template = templateResponse.Models?.FirstOrDefault();
 
-            _logger.LogWarning("🔍 Поиск шаблона: LessonId={LessonId}, LanguageId={LangId}", lessonId, pythonLang);
+            _logger.LogWarning("🔍 Поиск шаблона: LessonId={LessonId}, LanguageId={LangId}", lessonId, courseLanguageId);
 
             if (template != null)
             {
@@ -381,7 +393,7 @@ public class TeacherCourseService
             var testsResponse = await _client
                 .From<Test>()
                 .Filter("lesson_id", Supabase.Postgrest.Constants.Operator.Equals, lessonId)
-                .Filter("language_id", Supabase.Postgrest.Constants.Operator.Equals, pythonLang)
+                .Filter("language_id", Supabase.Postgrest.Constants.Operator.Equals, courseLanguageId)
                 .Order("test_order", Supabase.Postgrest.Constants.Ordering.Ascending)
                 .Get();
 
